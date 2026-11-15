@@ -1,0 +1,91 @@
+{
+  "provenance": {
+    "source": "FU Berlin Jezero Virtual Hiking Map",
+    "sourceUrl": "https://maps.planet.fu-berlin.de/jezero/",
+    "tourConfig": "https://maps.planet.fu-berlin.de/vtour/tour.xml",
+    "imagery": "Original multiresolution cubemap scenes; opened in the source viewer to preserve full Quest quality.",
+    "credits": "HRSC: ESA/DLR/FU-BERLIN; CTX: NASA/JPL-Caltech/MSSS; HiRISE: NASA/JPL/University of Arizona"
+  },
+  "viewpoints": [
+    {
+      "id": "jezero-virtual-center",
+      "panoId": -1,
+      "name": "Jezero crater center",
+      "title": "Jezero Crater Center Virtual Panorama",
+      "scene": "scene_Camera15_center_crater",
+      "lon": 77.688,
+      "lat": 18.396,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera15_center_crater.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-sava-vallis",
+      "panoId": -2,
+      "name": "Sava Vallis",
+      "title": "Sava Vallis Virtual Panorama",
+      "scene": "scene_Camera13_inflow_2_spheric",
+      "lon": 77.564,
+      "lat": 18.769,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera13_inflow_2_spheric.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-mountain-view",
+      "panoId": -3,
+      "name": "Mountain view",
+      "title": "Jezero Mons Virtual Panorama",
+      "scene": "scene_Camera9_Mountain_2",
+      "lon": 78.1476145,
+      "lat": 18.1300505,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera9_Mountain_2.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-outflow-channel",
+      "panoId": -4,
+      "name": "Outflow channel",
+      "title": "Pliva Vallis Virtual Panorama",
+      "scene": "scene_Camera8_outflow_2_spheric",
+      "lon": 78.0978774,
+      "lat": 18.5295347,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera8_outflow_2_spheric.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-delta-top",
+      "panoId": -5,
+      "name": "Delta top",
+      "title": "Delta Top Virtual Panorama",
+      "scene": "scene_Camera5_delta_spheric2",
+      "lon": 77.358,
+      "lat": 18.508,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera5_delta_spheric2.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-delta-basement",
+      "panoId": -6,
+      "name": "Delta basement",
+      "title": "Delta Basement Virtual Panorama",
+      "scene": "scene_Camera5_inflow_spheric2",
+      "lon": 77.46,
+      "lat": 18.53,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera5_inflow_spheric2.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-neretva-vallis",
+      "panoId": -7,
+      "name": "Neretva Vallis",
+      "title": "Inside Neretva Vallis Virtual Panorama",
+      "scene": "scene_Camera4_inflow_spheric3",
+      "lon": 77.2847649,
+      "lat": 18.496,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/Camera4_inflow_spheric3.tiles/thumb.jpg"
+    },
+    {
+      "id": "jezero-virtual-paleo-lake-view",
+      "panoId": -8,
+      "name": "Paleo lake view",
+      "title": "Paleo lake view Virtual Panorama",
+      "scene": "scene_paleo_lake_view",
+      "lon": 77.302,
+      "lat": 18.554,
+      "preview": "https://maps.planet.fu-berlin.de/vtour/panos/paleo_lake_view.tiles/thumb.jpg"
+    }
+  ]
+}
