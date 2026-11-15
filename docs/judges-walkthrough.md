@@ -1,48 +1,70 @@
-# Judges' walkthrough (5 minutes)
+# Judges' walkthrough — 5 minutes
 
-**Open:** https://happyfeet-mars.onrender.com. It runs on a free server: if the first load takes ~1 minute,
-it was asleep, so give it a moment. Backup without route planning: https://koyphshi.github.io/happyfeet-mars-demo/
+**Open:** https://happyfeet-mars.onrender.com (full app). If it is slow to answer the first time, wait ~1 min:
+the free host wakes up. Backup without the route planner: https://koyphshi.github.io/happyfeet-mars-demo/
 
-Everything below was checked on the live site with a fresh browser on 15 Nov 2026.
-A tab-by-tab description of every feature will be in `docs/features.md` (arriving with agent:ahmed's next PR).
+Everything below was checked in a fresh headless Chrome against `main` on 15 Nov 2026. Steps marked
+**(full app)** need the Render link; everything else also works on the backup.
 
-## 1. The place and the data (Layers tab, ~1 min)
-- The globe opens on Mars. Fly to **Gale crater**: the boxwork terrain Curiosity is crossing now.
-- **Layers** shows four kinds of NASA data, each with a provenance line (dataset · mission · resolution ·
-  date · credit): **optical** (Viking, HiRISE of Gale), **topographic** (MOLA, MOLA + HRSC), **thermal**
-  (THEMIS day IR) and **atmospheric** (*Atmosphere · Gale*: Curiosity REMS, latest sol; measured, not a forecast).
-- *Pathfinding view* shows what the route planner sees: slope, roughness, soft dust, dust cover.
+## 1. One place, real data (30 s)
 
-## 2. Does the crew get home? (Crew & EVA tab, ~2 min)
-1. Check that the chip reads **✓ Data verified 9/9**: the data files match an offline-signed manifest (BLAKE3 + Ed25519).
-2. Press **▶ Demo excursion (boxwork)**: haven → ridge crest → hollow floor → layer contact → haven,
-   2.25 km, ~2 h 04 min with 20 min of sampling per stop.
-   The survival card says **GO — lowest reserve at return: Crew B oxygen 69 % (min 20 %)**: oxygen, cooling water
-   and battery per crew member, the walk-back limit, and a comms blackout from line of sight.
-3. Switch **Scenario** to *Crew B oxygen at 30 %*. The same route is now **REFUSED — Crew B runs out of oxygen
-   2.05 km out, between Layer contact and Haven**. The refusal names the crew member, the consumable and the place.
-4. Press **Tamper test**: one bit of `route.json` is flipped in memory, the chip turns red, and the route is
-   **refused** with the file named. **Reset** restores it.
+1. **Layers** tab (left dock).
+   - Four kinds of NASA data, each with a provenance line (dataset · mission · resolution · date · credit):
+     optical (Viking, HiRISE of Gale), topographic (MOLA, MOLA + HRSC), thermal (THEMIS day IR),
+     atmospheric ("Atmosphere · Gale": Curiosity REMS, latest sol; measured, not a forecast).
+   - **Pathfinding view** chips show exactly what the route planner "sees": slope, roughness, soft dust, dust cover.
 
-## 3. Why this route? (Path tab → Showcase scenarios, ~2 min)
-Pick a scenario and press **▶ Run**. Each one runs the real planner on MOLA terrain:
-- **Detour: slopes too steep** (Gale → Mount Sharp at 10°): the route is ~181 % longer than the straight 40.9 km, worst slope 19.5°.
-- **Detour: rough terrain**: ~13 % longer to stay off bumpy ground.
-- **Impossible: canyon wall** (Coprates Chasma, 15°): no route, and the panel says that raising the limit to 25° would open a ramp.
-- **Too far on foot, fine for a rover** (Gale, 15 km): the astronaut is refused; a Perseverance-class rover makes it, in sols.
-- **Too hot for the suit**: the temperature check (REMS ground temperature vs suit limit) refuses the EVA.
-The **"Why this route"** panel names every reason, and **Show these layers on the map** switches on the data behind it.
+## 2. The decision: GO or REFUSED (90 s)
 
-## 4. Optional
-- **🥽 VR replay** (`/vr.html`): the same signed route on a terrain patch, with the survival HUD. Desktop: drag to look, keys 0–4.
-  Headset: *Enter VR* in the Meta Quest browser.
-- **Crew & EVA → ＋ Add → 🧭 Walk from here**: click any point; an astronaut gets how long they can stay, a rover feasible / not feasible.
+2. **Crew & EVA** tab.
+   - The integrity chip should read **"✓ Data verified … files match the signed manifest"**.
+3. Press **▶ Demo excursion (boxwork)**.
+   - A 2.25 km loop from a haven to three science stops (ridge crest, hollow floor, layer contact) in the
+     Gale boxwork, where Curiosity has been driving.
+   - Survival card: **GO — lowest reserve at return: Crew B oxygen 69 % (min 20 %)**; per-crew O₂ / cooling
+     water / battery bars, walk-back limit, a comms-blackout warning (26 min without line of sight), timeline
+     (ETA 2 h 04 incl. 20 min sampling per stop).
+4. Change **Scenario** to *Hypothetical: Crew B oxygen at 30 %*.
+   - **REFUSED — Crew B runs out of oxygen 2.05 km out, between Layer contact and Haven (return).**
+   - *Feedwater at 18 %* → *Crew B would return with 14 % cooling water (needs 20 % reserve)*.
+5. **Tamper test** (on the integrity chip): one bit of `route.json` is flipped in memory → the chip names the
+   file and the demo route is **REFUSED — integrity**. Press **Reset** to restore.
 
-## What is real and what is modelled
-- **Real data:** NASA Trek imagery, MOLA / HRSC elevation, Curiosity's traverse and panoramas, REMS weather, IAU names.
-- **Modelled:** walking speed (Tobler), oxygen and cooling water from metabolic power, suit capacities from the Apollo 15–17
-  backpack (some values ASSUMED). Every number is listed with its source in `docs/assumptions.md`.
-- **Scale:** the terrain is ~200 m to ~2.6 km per pixel, so routes are indicative, not walk-scale. The app labels this
-  wherever it matters. Thermal-inertia and dust hazards are qualitative (decoded from map colours).
-- **Integrity:** detects changed or corrupted data files. It does not protect against a compromised server and does not
-  verify NASA's live tiles.
+## 3. Real terrain, explained (90 s) — (full app)
+
+6. **Path** tab → **Showcase scenarios** → pick one → **▶ Run**. Each runs on real MOLA terrain and the
+   **"Why this route"** panel explains the result; **"Show these layers on the map"** turns on the layers behind it.
+   - *↪ Detour: slopes too steep (Gale → Mount Sharp, 10°)* → route ~2.8× the straight 40.9 km; worst slope 19.5°.
+   - *↪ Detour: rough terrain (… avoid rough)* → ~13 % longer to stay off rough ground.
+   - *✗ Impossible: canyon wall (Coprates Chasma, 15°)* → no route; "raise the slope limit to 25°" would open one.
+   - *✗ Too far on foot, ✓ fine for a rover (Gale, 15 km)* → astronauts refused, a Perseverance-class rover
+     feasible in sols (compare both in **Crew & EVA**).
+7. Plan your own: in **Path**, add two stops (search a spot or *Click on map*) → **Calculate route**. Optional:
+   *Fastest walk*, *Avoid rough terrain*. The survival card in **Crew & EVA** prices the new route.
+
+## 4. Crew and rovers (45 s)
+
+8. **Crew & EVA → ＋ Add ▾** → *Astronaut* or *Perseverance*. Select it → **🧭 Walk from here…** → click the map:
+   an astronaut gets how long they can stay and still return with the reserve; a rover gets *Feasible / Not
+   feasible* and the time in sols.
+
+## 5. The same route in VR (30 s)
+
+9. **🥽 VR replay** (Crew & EVA) opens `vr.html`: terrain patch, route, stop beacons, four survival panels,
+   ▶ Replay walk. On a Meta Quest browser press **Enter VR** (trigger = teleport, thumbstick = turn).
+   Desktop: drag to look, keys 0–4 jump between viewpoints. *(Tested on desktop; headset testing pending.)*
+
+## What is measured, what is modelled
+
+- **Measured / published:** NASA Trek imagery and MOLA / HRSC elevation, Curiosity traverse and REMS weather,
+  named features (USGS). Every layer shows its source.
+- **Modelled:** oxygen, cooling water and battery use. Coefficients are cited where a source exists (Apollo
+  lunar-EVA metabolic rate; Apollo 15–17 suit water and battery), otherwise labelled **ASSUMED** in
+  `docs/assumptions.md`. Scenario failures ("oxygen at 30 %") are hypothetical demo inputs.
+- **Resolution:** terrain is ~200 m to ~2.6 km per cell, so routes are indicative, not walk-scale. Soft-dust
+  and dust-cover hazards come from orbital maps (~3 km/px) and are qualitative.
+- **Integrity:** detects changed data files against an offline-signed manifest (BLAKE3 + Ed25519); it assumes
+  the app code is trusted and does not verify NASA's live tiles.
+
+More detail: [deploy](deploy.md) · [route.json schema](route-schema.md) · [integrity](integrity.md) ·
+[assumptions](assumptions.md).
