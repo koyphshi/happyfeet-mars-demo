@@ -5,6 +5,8 @@ model are in [`assumptions.md`](assumptions.md); data provenance in [`curiosity-
 signed data in [`integrity.md`](integrity.md), the `route.json` format in [`route-schema.md`](route-schema.md),
 deployment in [`deploy.md`](deploy.md).
 
+**Live:** https://happyfeet-mars.onrender.com (full app) · https://koyphshi.github.io/happyfeet-mars-demo/ (static backup) · [5-minute judges' walkthrough](judges-walkthrough.md)
+
 **Run it:** `cd web && npm ci && node serve.mjs` → http://localhost:8080. Tests: `cd web && npm test`.
 Route planning, 3D relief and layer search need this local server. The static demo
 (GitHub Pages) shows the globe, layers, spots and the signed demo excursion, but not live routes.
@@ -100,7 +102,7 @@ the point where the screen centre touches the ground, and it never goes below th
   - **🧭 Walk from here:** click any point on the map. You get how long they can last there, or
     (for rovers that never run out) just whether the way is feasible, and why not if it isn't;
   - **Start EVA** with simulated time, **Return now**, **Follow** with the camera, editable speeds and tank sizes.
-- Astronauts use exactly the same model as the survival budget, so the two always agree.
+- Astronauts use exactly the same model as the survival budget (speeds, metabolic rates, suit capacities), so their numbers match it.
 
 ## Settings tab
 
