@@ -4,9 +4,12 @@ Drafted Sun 15 Nov 2026 by agent:yasser from what the app actually does on branc
 `agent/yasser-p0`. A human must paste this into the Space Apps project page, upload the deck, tick
 the boxes and fill the Members tab. **Only the last saved submission is judged.**
 
+Judges' 5-minute path through the live app: [`docs/judges-walkthrough.md`](judges-walkthrough.md).
+
 ## Submission checklist (human)
 
-- [ ] Public demo link loads in a private window, logged out: https://koyphshi.github.io/happyfeet-mars-demo/ (static; full server pending, see `docs/deploy.md`)
+- [ ] Public demo link loads in a private window, logged out: **https://happyfeet-mars.onrender.com** (full app; backup without the route planner: https://koyphshi.github.io/happyfeet-mars-demo/). See `docs/deploy.md`.
+- [ ] Judges' 5-minute path through the app: [`docs/judges-walkthrough.md`](judges-walkthrough.md)
 - [ ] Path tab → *Load demo excursion* → survival card shows **GO**; scenario *Crew B oxygen at 30 %* → **REFUSED** with the reason
 - [ ] Layers tab shows ≥ 3 data kinds with provenance (optical, topographic, thermal, atmospheric)
 - [ ] 7-slide deck uploaded (over 7 slides is not evaluated)
