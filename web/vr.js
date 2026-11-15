@@ -27,6 +27,9 @@ async function loadRoute() {
   } catch (e) {
     integrity = { ok: false, refused: e.code !== "unsupported", text: e.code === "unsupported" ? "not checked (no Ed25519 in this browser)" : `MISMATCH: ${e.message}` };
   }
+  // refuse before parsing: a tampered file that is not even valid JSON must still be reported as an
+  // integrity failure, not as a JSON syntax error
+  if (integrity.refused) return { route: null, integrity };
   return { route: parseRoute(new TextDecoder().decode(bytes)), integrity };
 }
 
@@ -96,6 +99,7 @@ function labelSprite(text, color = "#fde68a") {
 
 // ---------------------------------------------------------------- main
 const { route, integrity } = await loadRoute().catch((e) => { say(`Could not load the route: ${e.message}`); throw e; });
+if (integrity.refused || !route) { say(`REFUSED — ${integrity.text}. The VR replay only shows the signed route.`); throw new Error("route.json failed the integrity check"); }
 const sampler = excerptSampler(route.terrain);
 const haven = route.waypoints[0];
 const h0 = haven.elevation_m ?? route.path[0].elevation_m;
@@ -106,7 +110,6 @@ const groundY = (lon, lat) => ((sampler(lon, lat) ?? h0) - h0) * exag;
 const fromXZ = (x, z) => [haven.lon + x / (Math.cos(lat0) * MARS_RADIUS_M) / RAD, haven.lat - z / MARS_RADIUS_M / RAD];
 const table = replayTable(route);
 const stops = route.waypoints.filter((w, k) => k === 0 || w.role !== "haven");
-if (integrity.refused) { say(`REFUSED — ${integrity.text}. The VR replay only shows the signed route.`); throw new Error("route.json failed the integrity check"); }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));

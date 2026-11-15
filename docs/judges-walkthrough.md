@@ -3,8 +3,13 @@
 **Open:** https://happyfeet-mars.onrender.com (full app). If it is slow to answer the first time, wait ~1 min:
 the free host wakes up. Backup without the route planner: https://koyphshi.github.io/happyfeet-mars-demo/
 
-Everything below was checked in a fresh headless Chrome against `main` on 15 Nov 2026. Steps marked
+Everything below was checked in a fresh headless Chrome against `main @ d7a22f5` on 15 Nov 2026. Steps marked
 **(full app)** need the Render link; everything else also works on the backup.
+
+**0. Welcome tutorial.** A pop-up offers a guided tour on every load: press **Follow the tutorial** for a
+24-step tour of all tabs, or **Skip** (Esc) to go straight to the steps below. It can be relaunched from
+**Settings → Launch tutorial**, and resting the mouse on any control shows what it does.
+The page opens on the whole planet.
 
 ## 1. One place, real data (30 s)
 
@@ -18,13 +23,14 @@ Everything below was checked in a fresh headless Chrome against `main` on 15 Nov
 
 2. **Crew & EVA** tab.
    - The integrity chip should read **"✓ Data verified … files match the signed manifest"**.
-3. Press **▶ Demo excursion (boxwork)**.
+3. At the top of **Crew & EVA**, **Scenarios** is already set to *✓ Feasible: short science EVA (signed demo)*:
+   press **▶ Run**. It loads the signed demo and adds **Crew A** and **Crew B** as crew members.
    - A 2.25 km loop from a haven to three science stops (ridge crest, hollow floor, layer contact) in the
      Gale boxwork, where Curiosity has been driving.
    - Survival card: **GO — lowest reserve at return: Crew B oxygen 69 % (min 20 %)**; per-crew O₂ / cooling
      water / battery bars, walk-back limit, a comms-blackout warning (26 min without line of sight), timeline
      (ETA 2 h 04 incl. 20 min sampling per stop).
-4. Change **Scenario** to *Hypothetical: Crew B oxygen at 30 %*.
+4. In the survival box, change **Suit condition** to *Hypothetical: Crew B oxygen at 30 %*.
    - **REFUSED — Crew B runs out of oxygen 2.05 km out, between Layer contact and Haven (return).**
    - *Feedwater at 18 %* → *Crew B would return with 14 % cooling water (needs 20 % reserve)*.
 5. **Tamper test** (on the integrity chip): one bit of `route.json` is flipped in memory → the chip names the
@@ -32,15 +38,19 @@ Everything below was checked in a fresh headless Chrome against `main` on 15 Nov
 
 ## 3. Real terrain, explained (90 s) — (full app)
 
-6. **Path** tab → **Showcase scenarios** → pick one → **▶ Run**. Each runs on real MOLA terrain and the
-   **"Why this route"** panel explains the result; **"Show these layers on the map"** turns on the layers behind it.
+6. **Crew & EVA → Scenarios** → pick one → **▶ Run** (14 in total). Each runs on real MOLA terrain; open the
+   **Path** tab to see the **"Why this route"** panel, and **"Show these layers on the map"** turns on the layers behind it.
    - *↪ Detour: slopes too steep (Gale → Mount Sharp, 10°)* → route ~2.8× the straight 40.9 km; worst slope 19.5°.
    - *↪ Detour: rough terrain (… avoid rough)* → ~13 % longer to stay off rough ground.
+   - *⏱ Fastest is not shortest (Gale → Mount Sharp, timed)* → the fastest walk is ~7 % longer (44.3 vs 41.4 km) because it avoids the steepest climbs.
    - *✗ Impossible: canyon wall (Coprates Chasma, 15°)* → no route; "raise the slope limit to 25°" would open one.
+   - *✗ Impossible: soft dust mantle (Meridiani → Arabia)* → the route leaves firm ground and is blocked by a regional dust mantle (TES thermal inertia, qualitative).
    - *✗ Too far on foot, ✓ fine for a rover (Gale, 15 km)* → astronauts refused, a Perseverance-class rover
      feasible in sols (compare both in **Crew & EVA**).
 7. Plan your own: in **Path**, add two stops (search a spot or *Click on map*) → **Calculate route**. Optional:
-   *Fastest walk*, *Avoid rough terrain*. The survival card in **Crew & EVA** prices the new route.
+   *Fastest walk*, *Avoid rough terrain*. By default **For** = *Terrain only*: you get what the ground allows or
+   blocks. To get oxygen / water / battery and the survival verdict, pick a crew member in **For** (add one with
+   **Crew & EVA → ＋ Add** first), or use **🧭 Walk from here** (step 8).
 
 ## 4. Crew and rovers (45 s)
 
@@ -66,5 +76,5 @@ Everything below was checked in a fresh headless Chrome against `main` on 15 Nov
 - **Integrity:** detects changed data files against an offline-signed manifest (BLAKE3 + Ed25519); it assumes
   the app code is trusted and does not verify NASA's live tiles.
 
-More detail: [deploy](deploy.md) · [route.json schema](route-schema.md) · [integrity](integrity.md) ·
+More detail: [all features, tab by tab](features.md) · [deploy](deploy.md) · [route.json schema](route-schema.md) · [integrity](integrity.md) ·
 [assumptions](assumptions.md).
