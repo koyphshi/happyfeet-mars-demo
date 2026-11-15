@@ -117,12 +117,17 @@ let lastVrHudKey = "";
 const VR_PANEL_ATV = 44, VR_PANEL_FOLLOW_DEG = 35;
 const wrapDeg = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
 function placeVrPanelAtGaze() {
-  if (!krpano || !walkPanelCreated) return;
+  if (!krpano) return;
+  setupWalkPanel();
   krpano.set("hotspot[mars_walk_status_panel].ath", Number(krpano.get("view.hlookat")) || 0);
   krpano.set("hotspot[mars_walk_status_panel].atv", VR_PANEL_ATV);
 }
 function followGazeWithVrPanel() {
-  if (!krpano || !walkPanelCreated || !immersiveVr) return;
+  if (!krpano || !immersiveVr) return;
+  const before = walkPanelCreated && krpano.get("hotspot[mars_walk_status_panel].distorted");
+  setupWalkPanel();
+  // Rebuilt after a scene change: show it again straight away instead of waiting for the 1 s tick.
+  if (!before) { updateWalkPanel(); return; }
   const gaze = Number(krpano.get("view.hlookat")) || 0;
   const ath = Number(krpano.get("hotspot[mars_walk_status_panel].ath")) || 0;
   const diff = wrapDeg(gaze - ath);
@@ -149,12 +154,28 @@ window.navigateFilteredList ??= (dir) => {
   if (Number(dir) > 0) window.marsWalkAdvance?.();
   else if (index > 0) loadStop(index - 1);
 };
+// Idempotent and self-healing. A krpano scene load (the tour's first scene, or every
+// next/prev stop) can drop this hotspot despite keep=true. Any later krpano.set() on it
+// then auto-creates a bare default hotspot: non-distorted, so invisible in the headset, at
+// the image's natural size. That is why the HUD "totally disappeared" after a stop change.
+// So we check the hotspot on every update and rebuild it whenever it is missing or was reset.
 function setupWalkPanel() {
-  if (!krpano || walkPanelCreated) return;
-  krpano.call("addhotspot(mars_walk_status_panel);");
+  if (!krpano) return;
+  if (!vrHudCanvas) {
+    vrHudCanvas = document.createElement("canvas");
+    vrHudCanvas.width = 1000;
+    vrHudCanvas.height = 780;
+    vrHudContext = vrHudCanvas.getContext("2d");
+  }
   const panel = "hotspot[mars_walk_status_panel]";
+  const d = krpano.get(`${panel}.distorted`);
+  if (walkPanelCreated && (d === true || d === "true")) return;
+  const prevAth = Number(krpano.get(`${panel}.ath`)) || 0;
+  if (krpano.get(`${panel}.name`)) krpano.call("removehotspot(mars_walk_status_panel);");
+  krpano.call("addhotspot(mars_walk_status_panel);");
+  lastVrHudKey = ""; // the fresh hotspot has no image yet
   krpano.set(`${panel}.type`, "image");
-  krpano.set(`${panel}.ath`, 0);
+  krpano.set(`${panel}.ath`, prevAth);
   krpano.set(`${panel}.atv`, VR_PANEL_ATV);
   krpano.set(`${panel}.edge`, "center");
   krpano.set(`${panel}.depth`, 900);
@@ -172,10 +193,6 @@ function setupWalkPanel() {
   krpano.set(`${panel}.enabled`, false);
   krpano.set(`${panel}.capture`, false);
   krpano.set(`${panel}.visible`, false);
-  vrHudCanvas = document.createElement("canvas");
-  vrHudCanvas.width = 1000;
-  vrHudCanvas.height = 780;
-  vrHudContext = vrHudCanvas.getContext("2d");
   walkPanelCreated = true;
 }
 function drawVrHud(data) {
