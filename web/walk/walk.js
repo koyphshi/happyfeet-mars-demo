@@ -111,17 +111,43 @@ let domIntroShown = false;
 let vrIntroShown = false;
 let introAnimationUntil = 0;
 let immersiveVr = false;
+let lastVrHudKey = "";
+// Headset panel placement: below the eye line (under the floor arrow at atv 25) so it never
+// covers the arrow or the view ahead; it lazily follows the gaze yaw like web/vr.js's HUD.
+const VR_PANEL_ATV = 44, VR_PANEL_FOLLOW_DEG = 35;
+const wrapDeg = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
+function placeVrPanelAtGaze() {
+  if (!krpano || !walkPanelCreated) return;
+  krpano.set("hotspot[mars_walk_status_panel].ath", Number(krpano.get("view.hlookat")) || 0);
+  krpano.set("hotspot[mars_walk_status_panel].atv", VR_PANEL_ATV);
+}
+function followGazeWithVrPanel() {
+  if (!krpano || !walkPanelCreated || !immersiveVr) return;
+  const gaze = Number(krpano.get("view.hlookat")) || 0;
+  const ath = Number(krpano.get("hotspot[mars_walk_status_panel].ath")) || 0;
+  const diff = wrapDeg(gaze - ath);
+  if (Math.abs(diff) > VR_PANEL_FOLLOW_DEG) krpano.set("hotspot[mars_walk_status_panel].ath", ath + diff * 0.2);
+}
 window.marsWalkVrChanged = (active) => {
   immersiveVr = Boolean(active);
+  lastVrHudKey = ""; // force a fresh texture on enter/exit
   const preview = $("walkStatusPreview");
   if (preview) preview.hidden = immersiveVr;
   if (krpano && walkPanelCreated) {
-    if (immersiveVr) {
-      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
-      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat") - 12);
-    }
+    if (immersiveVr) placeVrPanelAtGaze();
     updateWalkPanel();
   }
+};
+// The FU Berlin tour.xml calls these page hooks from its VR events and controller buttons.
+// They exist on the FU site but not here; without them krpano logs a js() error on every VR
+// enter/exit. Map scene prev/next (left controller X/Y) onto the walk, the rest are no-ops.
+window._krpanoVrEnter ??= () => {};
+window._krpanoVrExit ??= () => {};
+window.setVrListMode ??= () => {};
+window.toggleListMode ??= () => {};
+window.navigateFilteredList ??= (dir) => {
+  if (Number(dir) > 0) window.marsWalkAdvance?.();
+  else if (index > 0) loadStop(index - 1);
 };
 function setupWalkPanel() {
   if (!krpano || walkPanelCreated) return;
@@ -129,13 +155,22 @@ function setupWalkPanel() {
   const panel = "hotspot[mars_walk_status_panel]";
   krpano.set(`${panel}.type`, "image");
   krpano.set(`${panel}.ath`, 0);
-  krpano.set(`${panel}.atv`, 0);
+  krpano.set(`${panel}.atv`, VR_PANEL_ATV);
+  krpano.set(`${panel}.edge`, "center");
   krpano.set(`${panel}.depth`, 900);
-  krpano.set(`${panel}.distorted`, false);
+  // Must be distorted: krpano's WebVR/WebXR view only draws WebGL-rendered (distorted)
+  // hotspots into the headset. A non-distorted hotspot is a flat screen overlay and simply
+  // does not appear in VR — that was the "HUD vanishes in VR" bug. (The FU tour's own VR menu
+  // and our floor arrow are distorted for the same reason.)
+  krpano.set(`${panel}.distorted`, true);
+  krpano.set(`${panel}.zorder`, 50);
   krpano.set(`${panel}.keep`, true);
-  krpano.set(`${panel}.width`, 900);
-  krpano.set(`${panel}.height`, 700);
+  // Distorted size is in sphere pixels at depth 1000: 600 px ≈ 33° wide, readable on Quest
+  // without filling the view. Aspect matches the 1000×780 canvas.
+  krpano.set(`${panel}.width`, 600);
+  krpano.set(`${panel}.height`, 468);
   krpano.set(`${panel}.enabled`, false);
+  krpano.set(`${panel}.capture`, false);
   krpano.set(`${panel}.visible`, false);
   vrHudCanvas = document.createElement("canvas");
   vrHudCanvas.width = 1000;
@@ -162,7 +197,7 @@ function drawVrHud(data) {
     ctx.fillRect(x, 82, 464, 126); ctx.strokeRect(x, 82, 464, 126);
     ctx.fillStyle = "#9AEFFF"; ctx.font = "bold 23px Orbitron, Arial, sans-serif";
     ctx.fillText(`${label} ${value}%`, x + 16, 96);
-    const full = 20, gap = 4, bw = 19;
+    const full = 20, gap = 4, bw = 18; // 20 × (18 + 4) − 4 = 436 px: fits inside the 464 px gauge box
     for (let i = 0; i < full; i++) {
       ctx.fillStyle = i < Math.round(value / 5) ? "#42DFFF" : "#174453";
       ctx.fillRect(x + 16 + i * (bw + gap), 151, bw, 24);
@@ -253,16 +288,24 @@ function updateWalkPanel() {
   if (panel) panel.hidden = inVr;
   krpano.set("hotspot[mars_walk_status_panel].visible", inVr);
   if (inVr) {
-    const vrHudImage = drawVrHud({
+    // Hours:minutes only in the headset. Every new url makes krpano reload the texture, and
+    // re-uploading it every second made the panel blink out; now it changes about once a
+    // Mars minute or on a new stop.
+    const hhmm = (hours) => formatMarsTime(hours).slice(0, 5);
+    const data = {
       name: stop.name || stop.title || `Jezero viewpoint ${index + 1}`,
       battery, oxygen, coordLat, coordLon,
-      solarTime: formatMarsTime(local.ltst), meanTime: formatMarsTime(local.lmst),
+      solarTime: hhmm(local.ltst), meanTime: hhmm(local.lmst),
       sunElevation: local.sunElevation.toFixed(1), sunWord,
       ls: clock.Ls.toFixed(1), season: marsSeason(clock.Ls, stop.lat),
       suitTemperature: suitTemperature.toFixed(1), suitPressure: suitPressure.toFixed(2),
       surfaceTemp, surfacePressure: surfacePressure.toFixed(2),
-    });
-    if (vrHudImage) krpano.set("hotspot[mars_walk_status_panel].url", vrHudImage);
+    };
+    const key = JSON.stringify(data);
+    if (key !== lastVrHudKey) {
+      const vrHudImage = drawVrHud(data);
+      if (vrHudImage) { krpano.set("hotspot[mars_walk_status_panel].url", vrHudImage); lastVrHudKey = key; }
+    }
   }
 }
 function updateHud() {
@@ -287,7 +330,7 @@ function setHotspot() {
     // Large transparent arrow image, anchored on the floor in the next stop's bearing.
     krpano.call(`addhotspot(mars_walk_arrow); set(hotspot[mars_walk_arrow].url,'/walk/next-arrow.svg'); set(hotspot[mars_walk_arrow].ath,${ath}); set(hotspot[mars_walk_arrow].atv,25); set(hotspot[mars_walk_arrow].width,220); set(hotspot[mars_walk_arrow].height,260); set(hotspot[mars_walk_arrow].distorted,true); set(hotspot[mars_walk_arrow].edge,center); set(hotspot[mars_walk_arrow].onclick,js(window.marsWalkAdvance()));`);
   } else {
-    krpano.call("addhotspot(mars_walk_finish); set(hotspot[mars_walk_finish].type,text); set(hotspot[mars_walk_finish].text,'ARRIVED · EXIT WALK'); set(hotspot[mars_walk_finish].css,'font-family:Arial;font-size:30px;font-weight:bold;color:#ffffff;text-align:center;background-color:#06252cf5;border:4px solid #75e8ff;border-radius:24px;padding:22px 28px;'); set(hotspot[mars_walk_finish].ath,0); set(hotspot[mars_walk_finish].atv,0); set(hotspot[mars_walk_finish].onclick,js(window.marsWalkExit()));");
+    krpano.call("addhotspot(mars_walk_finish); set(hotspot[mars_walk_finish].type,text); set(hotspot[mars_walk_finish].text,'ARRIVED · EXIT WALK'); set(hotspot[mars_walk_finish].css,'font-family:Arial;font-size:30px;font-weight:bold;color:#ffffff;text-align:center;background-color:#06252cf5;border:4px solid #75e8ff;border-radius:24px;padding:22px 28px;'); set(hotspot[mars_walk_finish].ath,0); set(hotspot[mars_walk_finish].atv,0); set(hotspot[mars_walk_finish].distorted,true); set(hotspot[mars_walk_finish].edge,center); set(hotspot[mars_walk_finish].onclick,js(window.marsWalkExit()));");
   }
 }
 function loadStop(target) {
@@ -304,10 +347,7 @@ function loadStop(target) {
   setTimeout(() => {
     if (thisLoad !== serial) return;
     krpano.call("set(view.hlookat,0); set(view.vlookat,0);");
-    if (immersiveVr) {
-      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
-      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat"));
-    }
+    if (immersiveVr) placeVrPanelAtGaze();
     ready = true; loading.hidden = true; updateHud(); setHotspot();
   }, 900);
 }
@@ -344,6 +384,8 @@ if (typeof window.embedpano !== "function") {
       setupWalkPanel();
       updateWalkPanel();
       setInterval(updateWalkPanel, 1000);
+      // setInterval, not requestAnimationFrame: window rAF is paused during an immersive WebXR session.
+      setInterval(followGazeWithVrPanel, 50);
       api.set("events.onnewscene", "js(window.marsWalkSceneReady())");
       api.set("events.webvr_onentervr", "js(window.marsWalkVrChanged(true))");
       api.set("events.webvr_onexitvr", "js(window.marsWalkVrChanged(false))");
