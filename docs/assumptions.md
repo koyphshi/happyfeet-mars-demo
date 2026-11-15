@@ -129,3 +129,29 @@ Speeds are averages including hazard stops, not top speeds.
 | rover slope slowdown | speed × max(0.25, 1 − 0.6 · slope ÷ maxSlope) | 0.6, 0.25 | – | — | ASSUMED |
 | rover battery uphill / idle factor | draw × (1 + 2 · grade) moving, × 0.15 parked | 2, 0.15 | – | — | ASSUMED |
 | `commsKm` | radio range to base for line of sight | 10 | km | — | ASSUMED |
+
+## Route hazards (pathfinding.js, hazards.js)
+
+Optional planner constraints, off by default. A blocked cell is never entered. A slowed cell
+multiplies the cost of entering it. The "Why this route" panel names every constraint that
+pushed the route off the direct line. **Every threshold below can be changed in Settings >
+Route hazards.** The values here are the defaults; "Defaults" in Settings restores them.
+
+| Symbol | Meaning | Default | Unit | Source | Status |
+|---|---|---|---|---|---|
+| roughness | RMS of a cell's 8 neighbours about the local slope plane, MOLA z6 (~2.6 km cells) | — | m | computed from the planner's DEM; same idea as km-scale MOLA roughness (Kreslavsky & Head 2000, JGR, "Kilometer-scale roughness of Mars: results from MOLA data analysis"), not the same metric | DERIVED |
+| `roughBlockM` | roughness that blocks a cell | 400 | m | no published threshold for this metric; measured 2026-11-15: Gale p50 70 m, p90 197 m, p99 356 m, so under 1 % of Gale is blocked | ASSUMED (calibrated, editable) |
+| `roughFreeM`, `roughDoubleM` | no cost up to 40 m; cost × 2 at 200 m (linear) | 40, 200 | m | Gale floor along the demo excursion = 41 m; InSight plains p50 4 m, p90 14 m | ASSUMED (calibrated, editable) |
+| thermal inertia index | position (0–1) on the colour ramp of Trek `TES_Thermal_Inertia`, level 1 (~21 km/px) | — | – | ramp decoded by hue; direction checked 2026-11-15: Tharsis, Amazonis, Arabia, Olympus Mons = 0; Gale 0.67, Jezero 0.52, Gusev 0.45, Meridiani 0.36, Acidalia 0.62 | DERIVED |
+| `TIU_PER_INDEX` | index → thermal inertia, J m⁻² K⁻¹ s⁻½ (TIU) | 493 | TIU | single-point calibration: Gale index 0.67 ↔ 250–410 TIU (mid 330) for most of the Gale landing region, Fergason et al. 2012, Space Sci. Rev. 170, 739, doi:10.1007/s11214-012-9891-3; assumes a linear ramp from 0. Cross-check: Meridiani decodes to ≈177 | DERIVED (approximate) |
+| `softBlockTi` | thermal inertia below which a cell is blocked (dust-dominated surface) | 100 | TIU | MSL engineering constraint: thermal inertia < 100 TIU = dust-dominated surface hazard (MSL Engineering User Guide, https://marsoweb.nas.nasa.gov/landingsites/msl/memoranda/MSL_Eng_User_Guide_v2.pdf). That is a lander criterion, used here for walking and driving | CITED (applied by analogy) |
+| `softSlowTi` | below this, cost rises linearly to `softSlowMax` | 150 | TIU | MER: avoid fine-component thermal inertia below ~125–165 TIU (Golombek et al. 2003, https://ntrs.nasa.gov/api/citations/20030066722/downloads/20030066722.pdf) | CITED (applied by analogy) |
+| `softSlowMax` | cost just above the block line | 1.6 | × | — | ASSUMED (editable) |
+| dust index | position (0–1) on the colour ramp of Trek `TES_Dust`, level 1 | — | – | decoded by hue; less consistent than thermal inertia (Olympus Mons reads 0); no legend or calibration found, so it never blocks a cell | DERIVED (uncalibrated) |
+| `dustSlowAbove`, `dustSlowMax` | above 60 % of the scale, cost rises linearly to × 1.3 | 60, 1.3 | %, × | — | ASSUMED (editable) |
+| `tempMinC`, `tempMaxC` | ground-temperature limits of the route temperature check | −129, +39 | °C | the Mars EVA design envelope, not a rating of any real suit: worst-case cold / hot surface temperatures at EVA-realistic sites (≤ 7 Torr) from the JPL Mars GCM, 144 K and 312 K (NASA, "Mars Portable Life Support System Status and Plan", ICES-2026-126, Table 3, https://ntrs.nasa.gov/api/citations/20260003024/downloads/Final_ICES2026_Mars_PLSS_Plan.pdf) | CITED (editable) |
+
+Temperature is not a planner cost. No global surface-temperature map exists in the data the
+app uses. Only Curiosity REMS at Gale measures temperature, so the check runs on whole routes
+within ~90 km of Gale, and elsewhere it says "no data". With the default envelope, a refusal
+means conditions beyond NASA's worst case. Tighten the limits in Settings to model a specific suit.

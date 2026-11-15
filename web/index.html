@@ -37,6 +37,8 @@
     .setRow select { flex: 1; min-width: 0; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px;
       font: 12.5px system-ui, sans-serif; padding: 3px 5px; }
     .setRow input[type=range] { flex: 1; min-width: 0; }
+    .setRow input.hzNum { width: 64px; flex: none; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 1px 4px; }
+    .setRow .hzUnit { color: #999; font-size: 11px; flex: 1; min-width: 0; }
     .setRow[hidden] { display: none; }
     .setNote { color: #aaa; font-size: 11.5px; margin-top: 3px; }
     .setCheck { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -287,6 +289,13 @@
     #routeControls button { margin: 2px 4px 2px 0; padding: 4px 7px; cursor: pointer; }
     #routeControls button.on { border-color: #ffd54f; color: #ffe082; }
     #routeStatus { color: #bbb; font-size: 11.5px; min-height: 1.4em; margin-top: 4px; }
+    #routeWhy { font-size: 11.5px; color: #ccc; margin-top: 6px; }
+    #routeWhy:empty { display: none; }
+    #routeWhy h4 { margin: 6px 0 2px; font-size: 11.5px; color: #eee; font-weight: 600; }
+    #routeWhy ul { margin: 0; padding-left: 16px; }
+    #routeWhy li { margin: 1px 0; }
+    #routeWhy .blk { color: #ff8a80; } #routeWhy .slow { color: #f0c27a; } #routeWhy .ok { color: #9be39b; }
+    #routeWhy .src { color: #888; font-size: 10.5px; margin-top: 4px; }
     #slopeRow { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: #ccc; font-size: 11.5px; }
     #slopeRow input { flex: 1; min-width: 70px; }
     #readout, #scale .dist { white-space: pre; }
@@ -559,6 +568,20 @@
         </div>
         <div class="setNote">Max stay at a destination keeps this reserve for the trip back. Alerts fire below it, near the point of no return, and when the radio loses line of sight to the base.</div>
 
+        <div class="sub">Route hazards (thresholds)</div>
+        <div class="setRow" title="Cells rougher than this are never entered. Default 400 m: under 1% of Gale (MOLA z6). ASSUMED, calibrated"><span>Rough: block</span><input class="hzNum" data-hz="roughBlockM" type="number" min="10" max="2000" step="10" /><span class="hzUnit">m roughness</span></div>
+        <div class="setRow" title="Default 40 m = the Gale floor along Curiosity's demo excursion"><span>Rough: free</span><input class="hzNum" data-hz="roughFreeM" type="number" min="0" max="1000" step="5" /><span class="hzUnit">m (no extra cost below)</span></div>
+        <div class="setRow" title="Default 200 m (about Gale's 90th percentile)"><span>Rough: ×2 at</span><input class="hzNum" data-hz="roughDoubleM" type="number" min="1" max="2000" step="10" /><span class="hzUnit">m (cost doubles here)</span></div>
+        <div class="setRow" title="Default 100 TIU: MSL treats thermal inertia below 100 J m⁻² K⁻¹ s⁻½ as a dust-dominated surface hazard. TIU is approximate (map colours calibrated at Gale)"><span>Soft dust: block</span><input class="hzNum" data-hz="softBlockTi" type="number" min="0" max="600" step="5" /><span class="hzUnit">TIU thermal inertia ≈</span></div>
+        <div class="setRow" title="Default 150 TIU: MER avoided fine-component thermal inertia below ~125–165"><span>Soft dust: slow</span><input class="hzNum" data-hz="softSlowTi" type="number" min="0" max="600" step="5" /><span class="hzUnit">TIU (costlier below)</span></div>
+        <div class="setRow" title="ASSUMED"><span>Soft dust: max</span><input class="hzNum" data-hz="softSlowMax" type="number" min="1" max="10" step="0.1" /><span class="hzUnit">× cost near the block line</span></div>
+        <div class="setRow" title="ASSUMED: no calibration of this map was found"><span>Dust: slow above</span><input class="hzNum" data-hz="dustSlowAbove" type="number" min="0" max="99" step="1" /><span class="hzUnit">% of the TES dust scale</span></div>
+        <div class="setRow" title="ASSUMED"><span>Dust: max</span><input class="hzNum" data-hz="dustSlowMax" type="number" min="1" max="10" step="0.1" /><span class="hzUnit">× cost on the dustiest ground</span></div>
+        <div class="setRow" title="Default −129 °C (144 K): coldest worst-case Mars surface temperature at EVA-realistic sites, NASA ICES-2026-126 Table 3"><span>Suit: min temp</span><input class="hzNum" data-hz="tempMinC" type="number" min="-200" max="50" step="1" /><span class="hzUnit">°C ground</span></div>
+        <div class="setRow" title="Default +39 °C (312 K): hottest worst-case Mars surface temperature at those sites, NASA ICES-2026-126 Table 3"><span>Suit: max temp</span><input class="hzNum" data-hz="tempMaxC" type="number" min="-100" max="150" step="1" /><span class="hzUnit">°C ground</span></div>
+        <div class="setRow"><span></span><button id="hzDefaults" type="button" title="Put every route-hazard threshold back to its sourced default">Defaults</button></div>
+        <div class="setNote">Used by the Path tab hazard options. Changing a value clears the current route. TIU = J m⁻² K⁻¹ s⁻½, approximate. Sources and reasoning: docs/assumptions.md.</div>
+
         <div class="sub">Performance</div>
         <div class="setRow">
           <span>Terrain detail</span>
@@ -687,6 +710,9 @@
             <label class="routeOpt"><input id="routeLoop" type="checkbox" /> Return to start (A → … → A)</label>
             <label class="routeOpt"><input id="routeSmooth" type="checkbox" checked /> Smooth turns (Bezier)</label>
             <label class="routeOpt" title="Minimise suited walking time (survival.js speed model) instead of distance"><input id="routeFastest" type="checkbox" /> Fastest walk (time, not distance)</label>
+            <label class="routeOpt" title="Roughness computed from the MOLA heights: bumpy cells cost more, very rough cells are blocked"><input id="routeRough" type="checkbox" /> Avoid rough terrain (MOLA)</label>
+            <label class="routeOpt" title="Low thermal inertia = loose dust mantle. TES map, ~21 km/px, relative index decoded from map colours"><input id="routeSoftDust" type="checkbox" /> Avoid soft dust (TES thermal inertia)</label>
+            <label class="routeOpt" title="Dusty surfaces cost more (never blocked). TES map, ~21 km/px, relative index"><input id="routeDustCover" type="checkbox" /> Prefer less dusty ground (TES dust)</label>
             <label id="slopeRow">Max slope <input id="maxSlope" type="range" min="5" max="45" step="1" value="25" /><span id="maxSlopeValue">25°</span></label>
             <div id="slopeMeaning" class="hint">At 25°, allow up to 47 m elevation change per 100 m.</div>
             <div class="hint">Red cells exceed the slope limit and cannot be used by the route.</div>
@@ -698,6 +724,7 @@
           </div>
           <div id="walkHint" class="hint">Walk mode uses only the preferred Jezero panorama markers that match this A→B route.</div>
           <div id="routeStatus" aria-live="polite">Add at least two stops, then press Calculate route.</div>
+          <div id="routeWhy" aria-live="polite"></div>
           <div id="routeProgress" hidden>
             <div class="bar"><i></i></div>
             <div class="lines"></div>
@@ -842,7 +869,8 @@
         "Cesium did not load. In the web folder run:  npm install cesium  and reload.";
       return;
     }
-    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask, sampleTerrainHeights } = await import("./pathfinding.js");
+    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask, sampleTerrainHeights, roughnessHazard, explainLeg } = await import("./pathfinding.js");
+    const Hazards = await import("./hazards.js");
     const RouteIO = await import("./route-io.js");
     const Survival = await import("./survival.js");
     const { renderSurvivalCard } = await import("./survival-card.js");
@@ -3477,6 +3505,102 @@
     const routeCalcBtn = document.getElementById("routeCalcBtn");
     const routeLoopBox = document.getElementById("routeLoop");
     const routeFastestBox = document.getElementById("routeFastest");
+    const routeRoughBox = document.getElementById("routeRough");
+    const routeSoftDustBox = document.getElementById("routeSoftDust");
+    const routeDustCoverBox = document.getElementById("routeDustCover");
+    const routeWhyEl = document.getElementById("routeWhy");
+    let routeWhyEntities = [];
+    // Route-hazard thresholds (Settings > Route hazards), kept in this browser.
+    const HZ_STORE = "mars-route-hazards-v1";
+    const hzSettings = { ...Hazards.HAZARD_DEFAULTS };
+    try { Object.assign(hzSettings, JSON.parse(localStorage.getItem(HZ_STORE) || "{}")); } catch { /* defaults */ }
+    for (const k of Object.keys(hzSettings)) if (!(k in Hazards.HAZARD_DEFAULTS) || !Number.isFinite(Number(hzSettings[k]))) hzSettings[k] = Hazards.HAZARD_DEFAULTS[k];
+    const hzInputs = [...document.querySelectorAll("input[data-hz]")];
+    const showHz = () => { for (const el of hzInputs) el.value = hzSettings[el.dataset.hz]; };
+    showHz();
+    const onHzChange = () => {
+      for (const el of hzInputs) { const v = Number(el.value); if (el.value !== "" && Number.isFinite(v)) hzSettings[el.dataset.hz] = v; }
+      try { localStorage.setItem(HZ_STORE, JSON.stringify(hzSettings)); } catch { /* keep in memory */ }
+      routeStopsChanged();
+    };
+    for (const el of hzInputs) el.addEventListener("change", onHzChange);
+    document.getElementById("hzDefaults").addEventListener("click", () => {
+      Object.assign(hzSettings, Hazards.HAZARD_DEFAULTS);
+      try { localStorage.removeItem(HZ_STORE); } catch { /* ignore */ }
+      showHz(); routeStopsChanged();
+    });
+    const roughOpts = () => ({
+      blockM: hzSettings.roughBlockM, slowFromM: hzSettings.roughFreeM,
+      slowPerM: 1 / Math.max(1, hzSettings.roughDoubleM - hzSettings.roughFreeM),
+    });
+    const hazardKey = () => `${routeRoughBox.checked ? "r" : ""}${routeSoftDustBox.checked ? "s" : ""}${routeDustCoverBox.checked ? "c" : ""}|${JSON.stringify(hzSettings)}`;
+    async function loadRouteRasters(bounds) {
+      const keys = [routeSoftDustBox.checked && "softDust", routeDustCoverBox.checked && "dustCover"].filter(Boolean);
+      return Promise.all(keys.map((k) => Hazards.loadHazardRaster(k, bounds, { tileBase: TILE_BASE })));
+    }
+    let remsForRoute = null;
+    const routeRems = () => (remsForRoute ??= import("./rems.js").then((m) => m.loadRems()).catch(() => null));
+    function clearRouteWhy() {
+      routeWhyEl.replaceChildren();
+      for (const e of routeWhyEntities) viewer.entities.remove(e);
+      routeWhyEntities = [];
+    }
+    // Markers on the map where a constraint forced the route away from the direct line.
+    function markRouteWhy(reason, kind) {
+      if (routeWhyEntities.length >= 12) return;
+      const color = Cesium.Color.fromCssColorString(kind === "blk" ? "#ff5252" : "#ffb74d");
+      routeWhyEntities.push(viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(reason.at.lon, reason.at.lat, 0, MARS),
+        point: { pixelSize: 9, color, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        label: {
+          text: `${kind === "blk" ? "\u26D4" : "\u26A0"} ${reason.label}: ${reason.worstText}${reason.limit ? ` (${reason.limit})` : ""}`,
+          font: "600 11px system-ui, sans-serif", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -10), disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2_500_000),
+        },
+      }));
+    }
+    const kmText = (km) => (km >= 1 ? `${km.toFixed(1)} km` : `${Math.round(km * 1000)} m`);
+    // "Why this route": per leg, what blocked the direct line and what slowed it.
+    function renderRouteWhy(legs, { failure = null, temperature = null, sources = [] } = {}) {
+      clearRouteWhy();
+      const frag = document.createDocumentFragment();
+      const h = (text) => { const e = document.createElement("h4"); e.textContent = text; frag.append(e); };
+      const ul = () => { const e = document.createElement("ul"); frag.append(e); return e; };
+      const li = (list, cls, text) => { const e = document.createElement("li"); e.className = cls; e.textContent = text; list.append(e); };
+      const line = (r) => `${r.label}: worst ${r.worstText}${r.limit ? ` (${r.limit})` : ""}, ${r.count} cell${r.count === 1 ? "" : "s"} \u2248 ${kmText(r.km)} of the direct line`;
+      const longer = (E) => `${Math.max(0, Math.round(((E.detourRatio ?? 1) - 1) * 100))}% longer than the straight ${kmText(E.straightM / 1000)}`;
+      h(failure ? "Why there is no route" : "Why this route");
+      for (const leg of legs) {
+        const E = leg.explanation, list = ul();
+        const title = `${leg.from} \u2192 ${leg.to}`;
+        if (!E) { li(list, "", `${title}: not analysed`); continue; }
+        if (!E.blocked.length && !E.slowed.length) {
+          li(list, "ok", `${title}: direct line is clear${leg.found ? ` \u00B7 route is ${longer(E)}` : ""}`);
+        } else {
+          li(list, "", `${title}: ${leg.found ? `detoured \u00B7 route is ${longer(E)}` : "no walkable way found"}`);
+          for (const r of E.blocked) { li(list, "blk", `\u26D4 ${line(r)}`); markRouteWhy(r, "blk"); }
+          for (const r of E.slowed) { li(list, "slow", `\u26A0 ${line(r)}`); markRouteWhy(r, "slow"); }
+        }
+        for (const r of E.onRoute) li(list, "slow", `On the chosen route: ${r.label}, \u2248 ${kmText(r.km)} (worst ${r.worstText})`);
+      }
+      if (failure?.relaxed) {
+        h("What would make it possible");
+        const list = ul();
+        if (!failure.relaxed.length) li(list, "", "Checking\u2026");
+        for (const r of failure.relaxed) li(list, r.ok ? "ok" : "", `${r.ok ? "\u2713" : "\u2717"} ${r.what}`);
+      }
+      if (temperature) {
+        const list = ul();
+        li(list, temperature.level === "refuse" ? "blk" : temperature.level === "warn" ? "slow" : temperature.level === "ok" ? "ok" : "", temperature.text);
+      }
+      const src = document.createElement("div");
+      src.className = "src";
+      src.textContent = `Data: MOLA z6 heights (~2.6 km cells)${sources.length ? `; ${sources.join("; ")}` : ""}. Coarse data, not walk-scale.`;
+      frag.append(src);
+      routeWhyEl.append(frag);
+    }
     if (!USE_PROXY) { routeFastestBox.disabled = true; routeFastestBox.parentElement.title = "Needs the server (route planning is not available in the static demo)."; }
     let routeRunning = false;
     let crew = null; // crew.js, set up below
@@ -3629,6 +3753,7 @@
       for (const layer of unwalkableLayers) viewer.imageryLayers.remove(layer, true);
       unwalkableLayers = [];
       clearSurvival();
+      clearRouteWhy();
     }
     function makeRoutePin(point, color, label) {
       return viewer.entities.add({
@@ -4198,10 +4323,21 @@
         };
         // A leg that has not changed (same two stops, slope limit and kind of grid) is not
         // planned again: adding, removing or reordering stops only plans the new legs.
-        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|${routeFastestBox.checked ? "t" : "d"}|` +
+        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|${routeFastestBox.checked ? "t" : "d"}|${hazardKey()}|` +
           `${a.lon.toFixed(6)},${a.lat.toFixed(6)}|${b.lon.toFixed(6)},${b.lat.toFixed(6)}`;
+        const rasters = await loadRouteRasters(patchBounds).catch((error) => {
+          console.warn("Hazard layers unavailable:", error);
+          return [];
+        });
+        if (request !== routeRequest) return;
+        const rasterHazards = rasters.map((r) => Hazards.rasterHazard(r, hzSettings));
+        const hazardSources = [routeRoughBox.checked && "roughness computed from MOLA", ...rasters.map((r) => r.source)].filter(Boolean);
+        if ((routeSoftDustBox.checked || routeDustCoverBox.checked) && !rasters.length) hazardSources.push("TES hazard layers could not be loaded, planned without them");
+        const hazardsFor = (grid) => [routeRoughBox.checked && roughnessHazard(grid, roughOpts()), ...rasterHazards].filter(Boolean);
+        let routeFailure = null;
         const planSequence = async (grid) => {
-          const combined = { path: [], displayPath: [], turnIndices: [], waypointPositions: [], horizontalDistanceM: 0, terrainDistanceM: 0 };
+          const combined = { path: [], displayPath: [], turnIndices: [], waypointPositions: [], horizontalDistanceM: 0, terrainDistanceM: 0, reports: [] };
+          const hazards = hazardsFor(grid);
           for (let i = 1; i < waypoints.length; i++) {
             if (request !== routeRequest) return null;
             const a = lonLatToTerrainCell(grid, waypoints[i - 1].lon, waypoints[i - 1].lat);
@@ -4214,7 +4350,7 @@
             let leg = routeLegCache.get(key);
             if (leg === undefined) {
               leg = a && b ? await planTerrainRoute(grid, a, b, {
-                maxSlopeDeg: maxSlopeDeg(), shouldCancel: () => request !== routeRequest,
+                maxSlopeDeg: maxSlopeDeg(), shouldCancel: () => request !== routeRequest, hazards,
                 ...(routeFastestBox.checked ? { speedAt: (grade) => Survival.walkingSpeed(grade) } : {}),
                 onProgress: ({ expanded }) => { prog.expanded = expanded; },
               }) : null;
@@ -4222,7 +4358,12 @@
               routeLegCache.set(key, leg);
               while (routeLegCache.size > 300) routeLegCache.delete(routeLegCache.keys().next().value);
             } else prog.reused++;
-            if (!leg) return null;
+            const { from, to } = prog.leg;
+            let explanation = null;
+            try { if (a && b) explanation = explainLeg(grid, a, b, { maxSlopeDeg: maxSlopeDeg(), hazards, result: leg }); }
+            catch (error) { console.warn("Route explanation failed:", error); }
+            combined.reports.push({ from, to, explanation, found: !!leg });
+            if (!leg) { routeFailure = { grid, a, b, hazards, reports: combined.reports }; return null; }
             const legDisplayPath = leg.displayPath.map((point) => ({ ...point }));
             legDisplayPath[0] = { ...legDisplayPath[0], lon: waypoints[i - 1].lon, lat: waypoints[i - 1].lat };
             legDisplayPath[legDisplayPath.length - 1] = {
@@ -4293,11 +4434,36 @@
         // the route first; the red slope mask is painted afterwards without blocking
         drawUnwalkableOverlay(grid, () => request === routeRequest)
           .catch((error) => console.warn("Could not draw slope mask:", error));
-        if (!result) { setRouteStatus("No walkable route found at this slope limit."); crew?.routeComputed(false); return; }
+        if (!result) {
+          setRouteStatus("No walkable route found with these limits; see below for why.");
+          crew?.routeComputed(false);
+          const F = routeFailure;
+          if (F) {
+            renderRouteWhy(F.reports, { failure: { relaxed: [] }, sources: hazardSources });
+            // which single change would open a way? Each is one more A* on the failed leg.
+            const relaxed = [];
+            const tryPlan = async (what, opts) => {
+              if (request !== routeRequest || !F.a || !F.b) return;
+              const r = await planTerrainRoute(F.grid, F.a, F.b, { maxSlopeDeg: maxSlopeDeg(), hazards: F.hazards, shouldCancel: () => request !== routeRequest, ...opts });
+              if (request === routeRequest) relaxed.push({ what, ok: !!r });
+            };
+            try {
+              for (const hz of F.hazards) await tryPlan(`ignore ${hz.label}`, { hazards: F.hazards.filter((x) => x !== hz) });
+              if (maxSlopeDeg() < 45) await tryPlan(`raise the slope limit to ${Math.min(45, maxSlopeDeg() + 10)}\u00B0`, { maxSlopeDeg: Math.min(45, maxSlopeDeg() + 10) });
+            } catch (error) { console.warn("Relaxation check failed:", error); }
+            if (request === routeRequest) renderRouteWhy(F.reports, { failure: { relaxed }, sources: hazardSources });
+          }
+          return;
+        }
         drawRouteLine(grid, routeRawPath, routeRawTurns);
         prepareWalkRoute();
         try { updateSurvival(); } catch (error) { console.warn("Survival budget failed:", error); }
         crew?.routeComputed(true);
+        renderRouteWhy(result.reports, { sources: hazardSources });
+        routeRems().then((rems) => {
+          if (request !== routeRequest) return;
+          renderRouteWhy(result.reports, { temperature: Hazards.temperatureCheck(routeRawPath, rems, { min: hzSettings.tempMinC, max: hzSettings.tempMaxC }), sources: hazardSources });
+        });
         setRouteStatus(`${routeLoopBox.checked ? "Loop · " : ""}terrain ${(result.terrainDistanceM / 1000).toFixed(2)} km · horizontal ${(result.horizontalDistanceM / 1000).toFixed(2)} km · ${routeRawPath.length.toLocaleString()} samples · ${detail}` +
           (prog.reused ? ` · ${prog.reused} leg${prog.reused === 1 ? "" : "s"} reused` : ""));
       } catch (error) {
@@ -4399,6 +4565,7 @@
     });
     routeLoopBox.addEventListener("change", () => { routeStopsChanged(); });
     routeFastestBox.addEventListener("change", () => { routeStopsChanged(); });
+    for (const box of [routeRoughBox, routeSoftDustBox, routeDustCoverBox]) box.addEventListener("change", () => { routeStopsChanged(); });
     maxSlopeSlider.addEventListener("input", () => {
       maxSlopeValue.textContent = `${maxSlopeDeg()}°`;
       updateSlopeMeaning();
