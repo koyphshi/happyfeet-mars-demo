@@ -37,6 +37,48 @@ function bearingDeg(a, b) {
   return (Math.atan2(y, x) / RAD + 360) % 360;
 }
 function distanceLabel(m) { return m < 995 ? `${Math.max(1, Math.round(m / 5) * 5)} m` : `${(m / 1000).toFixed(1)} km`; }
+const marsMod = (n, m) => ((n % m) + m) % m;
+const marsRad = (d) => d * RAD;
+const marsSinD = (d) => Math.sin(marsRad(d));
+const marsCosD = (d) => Math.cos(marsRad(d));
+function marsClock(date = new Date()) {
+  const jdTT = date.getTime() / 86_400_000 + 2_440_587.5 + 69.184 / 86_400;
+  const dt = jdTT - 2_451_545.0;
+  const M = 19.3871 + 0.52402073 * dt;
+  const aFMS = 270.3871 + 0.524038496 * dt;
+  const terms = [[0.0071,2.2353,49.409],[0.0057,2.7543,168.173],[0.0039,1.1177,191.837],
+    [0.0037,15.7866,21.736],[0.0021,2.1354,15.704],[0.0020,2.4694,95.528],[0.0018,32.8493,49.095]];
+  const pbs = terms.reduce((sum, [a,tau,phi]) => sum + a * marsCosD((0.985626 * dt) / tau + phi), 0);
+  const vMinusM = (10.691 + 3e-7 * dt) * marsSinD(M) + 0.623 * marsSinD(2*M) + 0.050 * marsSinD(3*M) +
+    0.005 * marsSinD(4*M) + 0.0005 * marsSinD(5*M) + pbs;
+  const Ls = marsMod(aFMS + vMinusM, 360);
+  const eot = 2.861 * marsSinD(2*Ls) - 0.071 * marsSinD(4*Ls) + 0.002 * marsSinD(6*Ls) - vMinusM;
+  const msd = (jdTT - 2_405_522.0028779) / 1.0274912517;
+  const mtc = marsMod(24 * msd, 24);
+  const decl = Math.asin(0.42565 * marsSinD(Ls)) / RAD + 0.25 * marsSinD(Ls);
+  return { Ls, eot, mtc, decl };
+}
+function localMarsConditions(clock, lat, lon) {
+  const lmst = marsMod(clock.mtc + lon / 15, 24);
+  const ltst = marsMod(lmst + clock.eot / 15, 24);
+  const hourAngle = (ltst - 12) * 15;
+  const sunElevation = Math.asin(marsSinD(clock.decl) * marsSinD(lat) +
+    marsCosD(clock.decl) * marsCosD(lat) * marsCosD(hourAngle)) / RAD;
+  return { lmst, ltst, sunElevation };
+}
+function formatMarsTime(hours) {
+  const seconds = Math.floor(marsMod(hours, 24) * 3600);
+  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+    .map((n) => String(n).padStart(2, "0")).join(":");
+}
+function marsSeason(Ls, lat) {
+  const north = ["spring", "summer", "autumn", "winter"][Math.floor(Ls / 90) % 4];
+  const south = { spring: "autumn", summer: "winter", autumn: "spring", winter: "summer" }[north];
+  return `${lat < 0 ? "southern" : "northern"} ${lat < 0 ? south : north}`;
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
 function saveProgress() {
   try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ routeId: route?.generatedAt, index, visitedIds: [...visitedIds] })); } catch {}
 }
@@ -62,6 +104,167 @@ if (!stops.length) {
 let krpano = null;
 let ready = false;
 let serial = 0;
+let walkPanelCreated = false;
+let vrHudCanvas = null;
+let vrHudContext = null;
+let domIntroShown = false;
+let vrIntroShown = false;
+let introAnimationUntil = 0;
+let immersiveVr = false;
+window.marsWalkVrChanged = (active) => {
+  immersiveVr = Boolean(active);
+  const preview = $("walkStatusPreview");
+  if (preview) preview.hidden = immersiveVr;
+  if (krpano && walkPanelCreated) {
+    if (immersiveVr) {
+      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
+      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat") - 12);
+    }
+    updateWalkPanel();
+  }
+};
+function setupWalkPanel() {
+  if (!krpano || walkPanelCreated) return;
+  krpano.call("addhotspot(mars_walk_status_panel);");
+  const panel = "hotspot[mars_walk_status_panel]";
+  krpano.set(`${panel}.type`, "image");
+  krpano.set(`${panel}.ath`, 0);
+  krpano.set(`${panel}.atv`, 0);
+  krpano.set(`${panel}.depth`, 900);
+  krpano.set(`${panel}.distorted`, false);
+  krpano.set(`${panel}.keep`, true);
+  krpano.set(`${panel}.width`, 900);
+  krpano.set(`${panel}.height`, 700);
+  krpano.set(`${panel}.enabled`, false);
+  krpano.set(`${panel}.visible`, false);
+  vrHudCanvas = document.createElement("canvas");
+  vrHudCanvas.width = 1000;
+  vrHudCanvas.height = 780;
+  vrHudContext = vrHudCanvas.getContext("2d");
+  walkPanelCreated = true;
+}
+function drawVrHud(data) {
+  if (!vrHudContext || !vrHudCanvas) return;
+  const ctx = vrHudContext;
+  const w = vrHudCanvas.width, h = vrHudCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(4,19,29,0.78)";
+  ctx.strokeStyle = "#42DFFF";
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(4, 4, w - 8, h - 8, 24); ctx.fill(); ctx.stroke();
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#9AEFFF";
+  ctx.font = "28px Orbitron, Arial, sans-serif";
+  ctx.fillText(`⌖ ${data.name}`, 28, 24, w - 56);
+
+  const drawGauge = (x, label, value) => {
+    ctx.fillStyle = "#0A2937"; ctx.strokeStyle = "#42DFFF"; ctx.lineWidth = 2;
+    ctx.fillRect(x, 82, 464, 126); ctx.strokeRect(x, 82, 464, 126);
+    ctx.fillStyle = "#9AEFFF"; ctx.font = "bold 23px Orbitron, Arial, sans-serif";
+    ctx.fillText(`${label} ${value}%`, x + 16, 96);
+    const full = 20, gap = 4, bw = 19;
+    for (let i = 0; i < full; i++) {
+      ctx.fillStyle = i < Math.round(value / 5) ? "#42DFFF" : "#174453";
+      ctx.fillRect(x + 16 + i * (bw + gap), 151, bw, 24);
+    }
+  };
+  drawGauge(24, "▣ BATTERY", data.battery);
+  drawGauge(512, "◉ OXYGEN", data.oxygen);
+
+  ctx.font = "23px Orbitron, Arial, sans-serif";
+  ctx.fillStyle = "#9AEFFF";
+  const rows = [
+    [`Latitude: ${data.coordLat}`, `Longitude: ${data.coordLon}`],
+    [`Solar time: ${data.solarTime}`, `Mean time: ${data.meanTime}`],
+    [`Sun: ${data.sunElevation}° · ${data.sunWord}`, `Season: Ls ${data.ls}° · ${data.season}`],
+    [`Suit temp: ${data.suitTemperature}°C`, `Suit pressure: ${data.suitPressure} psi`],
+    [`Surface temp: ${data.surfaceTemp}°C`, `Surface pressure: ${data.surfacePressure} mbar`],
+  ];
+  rows.forEach((row, i) => {
+    const y = 250 + i * 62;
+    ctx.fillText(row[0], 28, y, 460);
+    ctx.fillText(row[1], 512, y, 460);
+  });
+  ctx.font = "18px Orbitron, Arial, sans-serif";
+  ctx.fillText("Suit sensor readings can be added later.", 28, 558);
+  ctx.fillStyle = "rgba(255,138,36,0.12)";
+  ctx.strokeStyle = "#FF8A24"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(24, 590, 952, 150, 12); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FF8A24"; ctx.font = "bold 23px Orbitron, Arial, sans-serif";
+  ctx.fillText("⚠ GENERAL CAUTION", 42, 610);
+  ctx.font = "21px Orbitron, Arial, sans-serif";
+  ctx.fillText("Loose regolith or small rocks may make footing uneven.", 42, 655, 910);
+  return vrHudCanvas.toDataURL("image/png");
+}
+function updateWalkPanel() {
+  if (!krpano) return;
+  setupWalkPanel();
+  const stop = stops[index];
+  const clock = marsClock();
+  const local = localMarsConditions(clock, stop.lat, stop.lon);
+  const progress = stops.length > 1 ? index / (stops.length - 1) : 0;
+  const battery = Math.round(98 - 15 * progress);
+  const oxygen = Math.round(96 - 18 * progress);
+  // Presentation-only suit readings: pressure follows the familiar EMU reference, while
+  // temperature stays in a narrow comfortable range with a slight per-stop change.
+  const suitPressure = 4.30 + (((index % 3) - 1) * 0.01);
+  const suitTemperature = 20.8 + Math.sin(index * 0.9) * 0.5;
+  const surfaceTemp = Math.round(-59 + Math.max(-45, Math.min(60, local.sunElevation)) * 0.28);
+  const surfacePressure = 6.36 + 0.45 * Math.sin(clock.Ls * RAD) + 0.1 * Math.sin(stop.lat * RAD);
+  const sunWord = local.sunElevation > 0 ? "day" : local.sunElevation > -6 ? "twilight" : "night";
+  const coordLat = `${Math.abs(stop.lat).toFixed(5)}°${stop.lat < 0 ? "S" : "N"}`;
+  const coordLon = `${Math.abs(stop.lon).toFixed(5)}°${stop.lon < 0 ? "W" : "E"}`;
+  const bar = (value) => "■".repeat(Math.round(value / 10)) + "□".repeat(10 - Math.round(value / 10));
+  let inVr = false;
+  try {
+    const vrEnabled = krpano.get("webvr.isenabled");
+    inVr = immersiveVr || vrEnabled === true || vrEnabled === "true" || vrEnabled === 1 || vrEnabled === "1";
+  } catch {}
+  const animateIntro = inVr ? !vrIntroShown : !domIntroShown;
+  if (animateIntro) {
+    if (inVr) vrIntroShown = true;
+    else domIntroShown = true;
+    introAnimationUntil = Date.now() + 2400;
+  }
+  const cautionDelay = Date.now() % 800;
+  const markup = `
+    <div class="${animateIntro ? "walk-typewriter" : ""}" style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:400;color:#9AEFFF;line-height:1.2;-webkit-text-stroke:0.35px #04131D">
+      <div style="margin-bottom:6px">⌖ ${escapeHtml(stop.name || stop.title || `Jezero viewpoint ${index + 1}`)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div style="padding:6px;border:1px solid #42DFFF;background-color:#0A2937">▣ BATTERY ${battery}%<br/>${bar(battery)}</div>
+        <div style="padding:6px;border:1px solid #42DFFF;background-color:#0A2937">◉ OXYGEN ${oxygen}%<br/>${bar(oxygen)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 8px">
+        <div>Latitude: ${coordLat}</div><div>Longitude: ${coordLon}</div>
+        <div>Solar time: ${formatMarsTime(local.ltst)}</div><div>Mean time: ${formatMarsTime(local.lmst)}</div>
+        <div>Sun: ${local.sunElevation.toFixed(1)}° · ${sunWord}</div><div>Season: Ls ${clock.Ls.toFixed(1)}° · ${marsSeason(clock.Ls, stop.lat)}</div>
+        <div>Suit temp: ${suitTemperature.toFixed(1)}°C</div><div>Suit pressure: ${suitPressure.toFixed(2)} psi</div>
+        <div>Surface temp: ${surfaceTemp}°C</div><div>Surface pressure: ${surfacePressure.toFixed(2)} mbar</div>
+      </div>
+      <div style="margin-top:5px">Suit sensor readings can be added later.</div>
+      <div class="walk-caution" style="margin-top:7px;padding:5px 7px;border:1px solid #FF8A24;color:#FF8A24;animation-delay:-${cautionDelay}ms">⚠ GENERAL CAUTION · Loose regolith or small rocks may make footing uneven.</div>
+    </div>`;
+  const panel = $("walkStatusPreview");
+  if (panel) {
+    panel.innerHTML = markup;
+    if (animateIntro) panel.classList.add("walk-typewriter");
+  }
+  // Use the DOM panel in flat preview and a scene-anchored hotspot in the headset.
+  if (panel) panel.hidden = inVr;
+  krpano.set("hotspot[mars_walk_status_panel].visible", inVr);
+  if (inVr) {
+    const vrHudImage = drawVrHud({
+      name: stop.name || stop.title || `Jezero viewpoint ${index + 1}`,
+      battery, oxygen, coordLat, coordLon,
+      solarTime: formatMarsTime(local.ltst), meanTime: formatMarsTime(local.lmst),
+      sunElevation: local.sunElevation.toFixed(1), sunWord,
+      ls: clock.Ls.toFixed(1), season: marsSeason(clock.Ls, stop.lat),
+      suitTemperature: suitTemperature.toFixed(1), suitPressure: suitPressure.toFixed(2),
+      surfaceTemp, surfacePressure: surfacePressure.toFixed(2),
+    });
+    if (vrHudImage) krpano.set("hotspot[mars_walk_status_panel].url", vrHudImage);
+  }
+}
 function updateHud() {
   const stop = stops[index], n = nextStopIndex(), next = n >= 0 ? stops[n] : null;
   title.textContent = stop.name || stop.title || `Jezero viewpoint ${index + 1}`;
@@ -71,6 +274,7 @@ function updateHud() {
   prevBtn.disabled = index === 0 || !ready;
   nextBtn.disabled = !next || !ready;
   exitBtn.hidden = !!next;
+  updateWalkPanel();
 }
 function setHotspot() {
   if (!krpano) return;
@@ -100,6 +304,10 @@ function loadStop(target) {
   setTimeout(() => {
     if (thisLoad !== serial) return;
     krpano.call("set(view.hlookat,0); set(view.vlookat,0);");
+    if (immersiveVr) {
+      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
+      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat"));
+    }
     ready = true; loading.hidden = true; updateHud(); setHotspot();
   }, 900);
 }
@@ -133,7 +341,12 @@ if (typeof window.embedpano !== "function") {
       // clear page-level control for Quest Browser as well.
       api.call("set(layer[webvr_enterbutton].visible,true); set(layer[webvr_enterbutton].enabled,true); set(layer[webvr_enterbutton].alpha,1);");
       enterVrBtn.hidden = false;
+      setupWalkPanel();
+      updateWalkPanel();
+      setInterval(updateWalkPanel, 1000);
       api.set("events.onnewscene", "js(window.marsWalkSceneReady())");
+      api.set("events.webvr_onentervr", "js(window.marsWalkVrChanged(true))");
+      api.set("events.webvr_onexitvr", "js(window.marsWalkVrChanged(false))");
       ready = true; loading.hidden = true;
       visitedIds.add(stops[index].id || stops[index].scene); saveProgress();
       updateHud(); setHotspot();
