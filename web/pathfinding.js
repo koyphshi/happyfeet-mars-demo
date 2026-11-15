@@ -43,11 +43,16 @@ let yieldChannel = null;
 function yieldToBrowser() {
   if (!yieldChannel && typeof MessageChannel !== "undefined") {
     yieldChannel = new MessageChannel();
-    yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
-    yieldChannel.port1.unref?.(); // Node: do not keep the process alive (no-op in browsers)
+    // Node: the port keeps the process alive only while a yield is pending (ref/unref are
+    // Node-only; browsers have neither and need nothing).
+    yieldChannel.port1.onmessage = () => {
+      yieldQueue.shift()?.();
+      if (!yieldQueue.length) yieldChannel.port1.unref?.();
+    };
+    yieldChannel.port1.unref?.();
   }
   if (!yieldChannel) return new Promise((resolve) => setTimeout(resolve, 0));
-  return new Promise((resolve) => { yieldQueue.push(resolve); yieldChannel.port2.postMessage(0); });
+  return new Promise((resolve) => { yieldQueue.push(resolve); yieldChannel.port1.ref?.(); yieldChannel.port2.postMessage(0); });
 }
 
 // ---------------------------------------------------------------- height tiles (memory cache)
@@ -338,7 +343,88 @@ function gridTools(grid) {
     const c = dy === 0 ? cosRow[y] : cosMid[dy > 0 ? y : y - 1];
     return Math.hypot(dx * lonM * c, dy * latM);
   };
-  return (grid._tools = { dense, cellCount, slotOf, heightAt, cellSlope, stepM, cosRow });
+  // Roughness: RMS of the 8 neighbours' heights about the local tilted plane (the plane of the
+  // slope gradient), in metres. Flat or evenly tilted ground scores 0, bumpy ground (crater
+  // rims, knobs, hummocky terrain) scores high: it catches what slope alone misses.
+  const roughCache = new Float32Array(cellCount).fill(NaN);
+  const roughAt = (x, y) => {
+    const h = get(x, y);
+    if (h === undefined) return Infinity;
+    const hx = Math.abs(lonM * cosRow[y]), hy = Math.abs(latM);
+    const w = get(x - 1, y), e = get(x + 1, y), n = get(x, y - 1), s = get(x, y + 1);
+    const gx = w !== undefined && e !== undefined ? (e - w) / (2 * hx) : 0;
+    const gy = n !== undefined && s !== undefined ? (s - n) / (2 * hy) : 0;
+    let sum = 0, count = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      if (!i && !j) continue;
+      const z = get(x + i, y + j);
+      if (z === undefined) continue;
+      const r = z - (h + gx * i * hx + gy * j * hy);
+      sum += r * r; count++;
+    }
+    return count >= 4 ? Math.sqrt(sum / count) : 0;
+  };
+  const cellRoughness = (id) => {
+    const k = slotOf(id);
+    if (k < 0) return Infinity;
+    let v = roughCache[k];
+    if (v !== v) { const x = id % width; v = roughCache[k] = roughAt(x, (id - x) / width); }
+    return v;
+  };
+  return (grid._tools = { dense, cellCount, slotOf, heightAt, cellSlope, cellRoughness, stepM, cosRow });
+}
+
+// ---------------------------------------------------------------- hazards
+// A hazard is a per-cell field that can block a cell or make it slower / costlier to cross:
+//   { id, label, unit, valueAt(cellId, lonDeg, latDeg) -> number | undefined,
+//     blocks(v) -> bool, factor(v) -> cost multiplier >= 1, describe(v) -> text, limit -> text }
+// The planner multiplies each step's cost by the factor of the cell it enters, and never
+// enters a blocked cell. Factors >= 1 keep the A* heuristic admissible.
+
+// Terrain roughness from the planner's own DEM (no extra data). Thresholds: docs/assumptions.md.
+export function roughnessHazard(grid, { blockM = 400, slowFromM = 40, slowPerM = 1 / 160 } = {}) {
+  const T = gridTools(grid);
+  return {
+    id: "roughness", label: "rough terrain", unit: "m",
+    valueAt: (id) => { const v = T.cellRoughness(id); return Number.isFinite(v) ? v : undefined; },
+    blocks: (v) => v > blockM,
+    factor: (v) => 1 + Math.max(0, v - slowFromM) * slowPerM,
+    describe: (v) => `roughness ${Math.round(v)} m`,
+    limit: `limit ${blockM} m`,
+  };
+}
+
+// Cell -> lon/lat of its centre (degrees), wrapped to -180..180.
+function cellLonLat(grid, id) {
+  const x = id % grid.width, y = (id - x) / grid.width;
+  const lon = ((((grid.westDeg + x * grid.lonStepDeg) + 180) % 360) + 360) % 360 - 180;
+  return { lon, lat: grid.northDeg + y * grid.latStepDeg };
+}
+
+// Per-planner cache of the combined hazard state of each cell: 0 = not computed yet,
+// -1 = blocked, otherwise the cost factor (>= 1).
+function hazardField(grid, hazards) {
+  const list = (hazards || []).filter(Boolean);
+  if (!list.length) return { any: false, factor: () => 1 };
+  const T = gridTools(grid), state = new Float32Array(T.cellCount);
+  const factor = (id) => {
+    const k = T.slotOf(id);
+    if (k < 0) return -1;
+    let f = state[k];
+    if (f === 0) {
+      f = 1;
+      const { lon, lat } = cellLonLat(grid, id);
+      for (const h of list) {
+        const v = h.valueAt(id, lon, lat);
+        if (v === undefined || v === null || Number.isNaN(v)) continue;
+        if (h.blocks?.(v)) { f = -1; break; }
+        if (h.factor) f *= Math.max(1, h.factor(v));
+      }
+      state[k] = f;
+    }
+    return f;
+  };
+  return { any: true, factor };
 }
 
 // Steep-cell mask of a rectangle of grid cells: 1 where the slope is above limitDeg.
@@ -412,7 +498,8 @@ export function terrainCellSlopeDeg(grid, x, y) {
 // Same search, same costs and same tie-breaking as before; only the bookkeeping is faster.
 // speedAt (optional): grade (rise/run, uphill positive) -> walking speed in m/s. When given, the
 // planner minimises walking TIME instead of surface distance (e.g. survival.js walkingSpeed).
-export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infinity, signal, shouldCancel = () => false, onProgress, speedAt } = {}) {
+// hazards (optional): see "hazards" above; blocked cells are never entered, slow cells cost more.
+export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infinity, signal, shouldCancel = () => false, onProgress, speedAt, hazards } = {}) {
   if (!(maxSlopeDeg === Infinity || (Number.isFinite(maxSlopeDeg) && maxSlopeDeg >= 0 && maxSlopeDeg < 90)))
     throw new RangeError("maxSlopeDeg must be between 0 and 90 degrees");
   const { width, height, heights, westDeg, northDeg, lonStepDeg, latStepDeg } = grid;
@@ -437,6 +524,7 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
     return Math.hypot(dLon * MARS_RADIUS_M * Math.cos(midLat), (b.lat - a.lat) * MARS_RADIUS_M);
   };
   const maxSlopeRatio = Math.tan(maxSlopeDeg * RAD);
+  const HZ = hazardField(grid, hazards);
   // time mode: the heuristic divides distance by the fastest speed on any allowed grade, so it
   // stays admissible (never overestimates the remaining time)
   let vMax = 1;
@@ -502,12 +590,14 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
     for (;;) {
       const id = y0 * width + ((x0 % width + width) % width);
       if (cellSlope(id) > maxSlopeDeg) return -1;
+      const hf = HZ.any ? HZ.factor(id) : 1;
+      if (hf < 0) return -1;
       const h = heightAt(id);
       if (prevId >= 0) {
         if (h === undefined || prevH === undefined) return -1;
         const d = stepM(stepX, prevY, y0 - prevY), rise = Math.abs(h - prevH);
         if (rise > d * maxSlopeRatio) return -1;
-        cost += speedAt ? Math.hypot(d, rise) / speedAt((h - prevH) / d) : Math.hypot(d, rise);
+        cost += hf * (speedAt ? Math.hypot(d, rise) / speedAt((h - prevH) / d) : Math.hypot(d, rise));
       }
       prevId = id; prevH = h; prevY = y0;
       if (x0 === x1 && y0 === y1) break;
@@ -612,7 +702,8 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
       });
       if (!displayPath.length) displayPath.push(path[0]);
       return { path, displayPath, turnIndices, horizontalDistanceM, expanded,
-        terrainDistanceM: speedAt ? surfaceM : currentCost, ...(speedAt ? { travelTimeS: currentCost } : {}) };
+        terrainDistanceM: speedAt || HZ.any ? surfaceM : currentCost,
+        ...(speedAt ? { travelTimeS: HZ.any ? undefined : currentCost } : {}), ...(HZ.any ? { weightedCost: currentCost } : {}) };
     }
     closed[sid] = 1;
     const x = id % width, y = (id - x) / width;
@@ -628,6 +719,7 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
       const nsid = slotOf(next);
       if (nsid < 0 || closed[nsid]) continue;
       if (cellSlope(next) > maxSlopeDeg) continue;
+      if (HZ.any && HZ.factor(next) < 0) continue;
       let via = id, stepCost = segmentCost(id, next);
       if (parentId !== -1 && shortSpan(parentId, nx, ny)) {
         const shortcut = segmentCost(parentId, next);
@@ -722,4 +814,89 @@ export function smoothTerrainPath(grid, path, maxSlopeDeg) {
     i = chosen;
   }
   return output;
+}
+
+// ---------------------------------------------------------------- route explanation
+// Why does the route between two stops look the way it does? Walks the direct line from start
+// to goal on the grid and reports every constraint that line breaks (blocked) or pays for
+// (slowed), with the worst value and where it happens; then compares the planned route with
+// that line (detour ratio) and lists the hazards the planned route itself crosses.
+//   result: the planTerrainRoute result for this leg, or null when no route was found.
+// Returns { straightM, blocked: [reason], slowed: [reason], onRoute: [reason], detourRatio }
+//   reason = { id, label, count, km, worst, worstText, limit, at: { lon, lat } }
+export function explainLeg(grid, start, goal, { maxSlopeDeg = Infinity, hazards = [], result = null } = {}) {
+  const T = gridTools(grid);
+  const { width } = grid;
+  const list = (hazards || []).filter(Boolean);
+  const maxSlopeRatio = Math.tan(maxSlopeDeg * RAD);
+  const blocked = new Map(), slowed = new Map(), onRoute = new Map();
+  const note = (map, id, label, value, worse, text, limit, cellId, stepLenM) => {
+    let r = map.get(id);
+    if (!r) map.set(id, r = { id, label, count: 0, km: 0, worst: value, worstText: text, limit, at: cellLonLat(grid, cellId) });
+    r.count++; r.km += stepLenM / 1000;
+    if (worse(value, r.worst)) { r.worst = value; r.worstText = text; r.at = cellLonLat(grid, cellId); }
+  };
+  const higher = (a, b) => a > b, lower = (a, b) => a < b;
+  // classify one cell (and the step into it) against every constraint
+  const classify = (id, prevId, stepLenM, target) => {
+    const k = T.slotOf(id), h = k < 0 ? undefined : T.heightAt(id);
+    if (h === undefined) { note(blocked, "nodata", "no terrain data", 1, higher, "no MOLA heights here", "", id, stepLenM); return; }
+    const slope = T.cellSlope(id);
+    if (slope > maxSlopeDeg) note(blocked, "slope", "slope too steep", slope, higher, `slope ${slope.toFixed(1)}°`, `limit ${maxSlopeDeg}°`, id, stepLenM);
+    if (prevId >= 0 && stepLenM > 0) {
+      const hp = T.heightAt(prevId);
+      if (hp !== undefined && Math.abs(h - hp) > stepLenM * maxSlopeRatio) {
+        const deg = Math.atan(Math.abs(h - hp) / stepLenM) / RAD;
+        note(blocked, "climb", "climb / drop too steep", deg, higher, `${deg.toFixed(1)}° between cells`, `limit ${maxSlopeDeg}°`, id, stepLenM);
+      }
+    }
+    const { lon, lat } = cellLonLat(grid, id);
+    for (const hz of list) {
+      const v = hz.valueAt(id, lon, lat);
+      if (v === undefined || v === null || Number.isNaN(v)) continue;
+      const worse = hz.lowIsBad ? lower : higher;
+      if (hz.blocks?.(v)) note(target ?? blocked, hz.id, hz.label, v, worse, hz.describe(v), hz.limit ?? "", id, stepLenM);
+      else if (hz.factor && hz.factor(v) >= 1.1) note(target ?? slowed, hz.id, `${hz.label} (slower)`, v, worse, hz.describe(v), `×${hz.factor(v).toFixed(2)} cost`, id, stepLenM);
+    }
+  };
+  // direct line (Bresenham, wrap-aware), same raster the planner uses for its shortcuts
+  let x0 = start.x, y0 = start.y, x1 = goal.x;
+  const y1 = goal.y;
+  if (grid.wrapX && Math.abs(x1 - x0) > width / 2) x1 += x1 < x0 ? width : -width;
+  const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy, prevId = -1, prevY = y0, straightM = 0, stepX = 0;
+  for (;;) {
+    const id = y0 * width + ((x0 % width + width) % width);
+    const len = prevId >= 0 ? T.stepM(stepX, prevY, y0 - prevY) : 0;
+    straightM += len;
+    classify(id, prevId, len);
+    prevId = id; prevY = y0;
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    stepX = 0;
+    if (e2 >= dy) { err += dy; x0 += sx; stepX = sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+  // hazards the planned route itself still crosses (slowed cells it accepted)
+  if (result?.path?.length && list.length) {
+    let prev = null;
+    for (const p of result.path) {
+      const id = p.y * width + p.x;
+      const len = prev ? T.stepM(Math.sign(p.x - prev.x), prev.y, p.y - prev.y) : 0;
+      const { lon, lat } = cellLonLat(grid, id);
+      for (const hz of list) {
+        const v = hz.valueAt(id, lon, lat);
+        if (v === undefined || v === null || Number.isNaN(v) || !hz.factor || hz.factor(v) < 1.1) continue;
+        note(onRoute, hz.id, hz.label, v, hz.lowIsBad ? lower : higher, hz.describe(v), `×${hz.factor(v).toFixed(2)} cost`, id, len);
+      }
+      prev = p;
+    }
+  }
+  const sorted = (m) => [...m.values()].sort((a, b) => b.count - a.count);
+  return {
+    straightM,
+    blocked: sorted(blocked), slowed: sorted(slowed), onRoute: sorted(onRoute),
+    // horizontal vs horizontal, so climbing does not count as a detour
+    detourRatio: result && straightM > 0 ? (result.horizontalDistanceM ?? result.terrainDistanceM) / straightM : null,
+  };
 }
