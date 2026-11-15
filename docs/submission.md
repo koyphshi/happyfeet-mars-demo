@@ -4,6 +4,8 @@ Drafted Sun 15 Nov 2026 by agent:yasser from what the app actually does on branc
 `agent/yasser-p0`. A human must paste this into the Space Apps project page, upload the deck, tick
 the boxes and fill the Members tab. **Only the last saved submission is judged.**
 
+Judges' 5-minute path through the live app: [`docs/judges-walkthrough.md`](judges-walkthrough.md).
+
 ## Submission checklist (human)
 
 - [ ] Public demo link loads in a private window, logged out: https://koyphshi.github.io/happyfeet-mars-demo/ (static; full server pending, see `docs/deploy.md`)
