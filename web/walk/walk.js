@@ -105,6 +105,8 @@ let krpano = null;
 let ready = false;
 let serial = 0;
 let walkPanelCreated = false;
+let vrHudCanvas = null;
+let vrHudContext = null;
 let domIntroShown = false;
 let vrIntroShown = false;
 let introAnimationUntil = 0;
@@ -114,36 +116,85 @@ window.marsWalkVrChanged = (active) => {
   const preview = $("walkStatusPreview");
   if (preview) preview.hidden = immersiveVr;
   if (krpano && walkPanelCreated) {
-    krpano.set("layer[mars_walk_status_panel].vr", true);
-    krpano.set("layer[mars_walk_status_panel].visible", immersiveVr);
+    if (immersiveVr) {
+      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
+      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat") - 12);
+    }
     updateWalkPanel();
   }
 };
 function setupWalkPanel() {
   if (!krpano || walkPanelCreated) return;
-  krpano.call("addlayer(mars_walk_status_panel);");
-  const panel = "layer[mars_walk_status_panel]";
-  krpano.set(`${panel}.type`, "text");
+  krpano.call("addhotspot(mars_walk_status_panel);");
+  const panel = "hotspot[mars_walk_status_panel]";
+  krpano.set(`${panel}.type`, "image");
+  krpano.set(`${panel}.ath`, 0);
+  krpano.set(`${panel}.atv`, 0);
+  krpano.set(`${panel}.depth`, 900);
+  krpano.set(`${panel}.distorted`, false);
   krpano.set(`${panel}.keep`, true);
-  krpano.set(`${panel}.vr`, true);
-  krpano.set(`${panel}.align`, "rightbottom");
-  krpano.set(`${panel}.x`, 20);
-  krpano.set(`${panel}.y`, 20);
-  krpano.set(`${panel}.width`, 500);
-  krpano.set(`${panel}.padding`, 10);
-  krpano.set(`${panel}.bgcolor`, "0x04131D");
-  krpano.set(`${panel}.bgalpha`, 0.68);
-  krpano.set(`${panel}.bgborder`, "2 0x42DFFF 1.0");
-  krpano.set(`${panel}.bgroundedge`, 14);
-  krpano.set(`${panel}.bgshadow`, "0 0 18 0x14BDEB 0.35");
-  krpano.set(`${panel}.css`, "font-family:'Orbitron',sans-serif;font-size:13px;font-weight:400;line-height:1.2;color:#9AEFFF;-webkit-text-stroke:0.35px #04131D;");
-  krpano.set(`${panel}.rawhtml`, true);
-  krpano.set(`${panel}.wordwrap`, true);
-  krpano.set(`${panel}.oversampling`, 2);
-  krpano.set(`${panel}.zorder`, 9000);
+  krpano.set(`${panel}.width`, 900);
+  krpano.set(`${panel}.height`, 700);
   krpano.set(`${panel}.enabled`, false);
-  krpano.set(`${panel}.visible`, true);
+  krpano.set(`${panel}.visible`, false);
+  vrHudCanvas = document.createElement("canvas");
+  vrHudCanvas.width = 1000;
+  vrHudCanvas.height = 780;
+  vrHudContext = vrHudCanvas.getContext("2d");
   walkPanelCreated = true;
+}
+function drawVrHud(data) {
+  if (!vrHudContext || !vrHudCanvas) return;
+  const ctx = vrHudContext;
+  const w = vrHudCanvas.width, h = vrHudCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(4,19,29,0.78)";
+  ctx.strokeStyle = "#42DFFF";
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(4, 4, w - 8, h - 8, 24); ctx.fill(); ctx.stroke();
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#9AEFFF";
+  ctx.font = "28px Orbitron, Arial, sans-serif";
+  ctx.fillText(`⌖ ${data.name}`, 28, 24, w - 56);
+
+  const drawGauge = (x, label, value) => {
+    ctx.fillStyle = "#0A2937"; ctx.strokeStyle = "#42DFFF"; ctx.lineWidth = 2;
+    ctx.fillRect(x, 82, 464, 126); ctx.strokeRect(x, 82, 464, 126);
+    ctx.fillStyle = "#9AEFFF"; ctx.font = "bold 23px Orbitron, Arial, sans-serif";
+    ctx.fillText(`${label} ${value}%`, x + 16, 96);
+    const full = 20, gap = 4, bw = 19;
+    for (let i = 0; i < full; i++) {
+      ctx.fillStyle = i < Math.round(value / 5) ? "#42DFFF" : "#174453";
+      ctx.fillRect(x + 16 + i * (bw + gap), 151, bw, 24);
+    }
+  };
+  drawGauge(24, "▣ BATTERY", data.battery);
+  drawGauge(512, "◉ OXYGEN", data.oxygen);
+
+  ctx.font = "23px Orbitron, Arial, sans-serif";
+  ctx.fillStyle = "#9AEFFF";
+  const rows = [
+    [`Latitude: ${data.coordLat}`, `Longitude: ${data.coordLon}`],
+    [`Solar time: ${data.solarTime}`, `Mean time: ${data.meanTime}`],
+    [`Sun: ${data.sunElevation}° · ${data.sunWord}`, `Season: Ls ${data.ls}° · ${data.season}`],
+    [`Suit temp: ${data.suitTemperature}°C`, `Suit pressure: ${data.suitPressure} psi`],
+    [`Surface temp: ${data.surfaceTemp}°C`, `Surface pressure: ${data.surfacePressure} mbar`],
+  ];
+  rows.forEach((row, i) => {
+    const y = 250 + i * 62;
+    ctx.fillText(row[0], 28, y, 460);
+    ctx.fillText(row[1], 512, y, 460);
+  });
+  ctx.font = "18px Orbitron, Arial, sans-serif";
+  ctx.fillText("Suit sensor readings can be added later.", 28, 558);
+  ctx.fillStyle = "rgba(255,138,36,0.12)";
+  ctx.strokeStyle = "#FF8A24"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(24, 590, 952, 150, 12); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FF8A24"; ctx.font = "bold 23px Orbitron, Arial, sans-serif";
+  ctx.fillText("⚠ GENERAL CAUTION", 42, 610);
+  ctx.font = "21px Orbitron, Arial, sans-serif";
+  ctx.fillText("Loose regolith or small rocks may make footing uneven.", 42, 655, 910);
+  return vrHudCanvas.toDataURL("image/png");
 }
 function updateWalkPanel() {
   if (!krpano) return;
@@ -198,12 +249,20 @@ function updateWalkPanel() {
     panel.innerHTML = markup;
     if (animateIntro) panel.classList.add("walk-typewriter");
   }
-  // Use the DOM panel in flat preview and the VR-safe KRPano layer in the headset.
+  // Use the DOM panel in flat preview and a scene-anchored hotspot in the headset.
   if (panel) panel.hidden = inVr;
-  krpano.set("layer[mars_walk_status_panel].vr", true);
-  krpano.set("layer[mars_walk_status_panel].visible", inVr);
-  if (!introAnimationUntil || Date.now() >= introAnimationUntil || animateIntro) {
-    krpano.set("layer[mars_walk_status_panel].text", markup);
+  krpano.set("hotspot[mars_walk_status_panel].visible", inVr);
+  if (inVr) {
+    const vrHudImage = drawVrHud({
+      name: stop.name || stop.title || `Jezero viewpoint ${index + 1}`,
+      battery, oxygen, coordLat, coordLon,
+      solarTime: formatMarsTime(local.ltst), meanTime: formatMarsTime(local.lmst),
+      sunElevation: local.sunElevation.toFixed(1), sunWord,
+      ls: clock.Ls.toFixed(1), season: marsSeason(clock.Ls, stop.lat),
+      suitTemperature: suitTemperature.toFixed(1), suitPressure: suitPressure.toFixed(2),
+      surfaceTemp, surfacePressure: surfacePressure.toFixed(2),
+    });
+    if (vrHudImage) krpano.set("hotspot[mars_walk_status_panel].url", vrHudImage);
   }
 }
 function updateHud() {
@@ -245,6 +304,10 @@ function loadStop(target) {
   setTimeout(() => {
     if (thisLoad !== serial) return;
     krpano.call("set(view.hlookat,0); set(view.vlookat,0);");
+    if (immersiveVr) {
+      krpano.set("hotspot[mars_walk_status_panel].ath", krpano.get("view.hlookat"));
+      krpano.set("hotspot[mars_walk_status_panel].atv", krpano.get("view.vlookat"));
+    }
     ready = true; loading.hidden = true; updateHud(); setHotspot();
   }, 900);
 }

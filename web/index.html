@@ -4961,7 +4961,7 @@
         routeStatus.textContent = `Could not save the walk route: ${error.message}`;
         return;
       }
-      location.href = "./walk/?v=20261115-vr-panel-v3";
+      location.href = "./walk/?v=20261115-vr-panel-v4";
     });
     routeCalcBtn.addEventListener("click", () => {
       if (routeRunning) { routeRequest++; setRouteRunning(false); setRouteStatus("Calculation cancelled."); return; }
