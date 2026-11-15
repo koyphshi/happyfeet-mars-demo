@@ -4624,7 +4624,9 @@
       teamToCrew(label);
       crew?.routeComputed(true);
       const what = route.label || route.site;
-      setRouteStatus(`${label}${what && what !== label ? ` · ${what}` : ""} · ${(route.distance_m / 1000).toFixed(2)} km · re-checked with this page's survival model`);
+      // a file's own label often starts with the same words ("Demo excursion: haven → …"): say it once
+      const head = what && what.startsWith(label) ? what : `${label}${what && what !== label ? ` · ${what}` : ""}`;
+      setRouteStatus(`${head} · ${(route.distance_m / 1000).toFixed(2)} km · re-checked with this page's survival model`);
       const lons = route.path.map((p) => p.lon), lats = route.path.map((p) => p.lat);
       flyToSpot((Math.min(...lons) + Math.max(...lons)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2, 6000);
       document.getElementById("survivalCard").scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -5259,12 +5261,10 @@
       { id: "rovers", title: "🛰 Rover comparison: pressurized rover vs Curiosity (Gale, 15 km)",
         stops: [GALE_LANDING, { lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }], slope: 20, crew: ["pressurized", "curiosity"],
         story: "Same 15 km at a 20° limit: a pressurized crew rover (~10 km/h, 72 h life support) does it in hours with life support to spare; Curiosity (tens of m/h, ~4 h of driving per sol) needs months of sols but never runs out (RTG). Compare both in Crew & EVA." },
-      { id: "cold", title: "❄ Too cold at night (hypothetical −60 °C suit limit)",
-        stops: [{ lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }, { lon: 137.42, lat: -4.82, name: "Boxwork, south-east" }], slope: 25, temp: { min: -60, max: 39 },
-        story: "Hypothetical suit rated only down to −60 °C ground temperature (this run only). REMS measured about −84 °C on the latest night, so the temperature check warns: daytime EVA only." },
-      { id: "hot", title: "🌡 Too hot for the suit (hypothetical 0 °C suit limit)",
-        stops: [{ lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }, { lon: 137.42, lat: -4.82, name: "Boxwork, south-east" }], slope: 25, temp: { min: -129, max: 0 },
-        story: "Hypothetical suit rated only to 0 °C ground temperature (this run only, not saved). Curiosity's REMS measured up to about +4 °C on the latest sol, so the temperature check refuses the EVA even though the terrain is fine." },
+      { id: "cold", title: "❄ Too cold at night (hypothetical −60 °C suit limit)", demo: true, scenario: "standard", temp: { min: -60, max: 39 },
+        story: "The signed boxwork EVA (GO with standard suits), with a hypothetical suit rated only down to −60 °C ground temperature (this run only). REMS measured about −84 °C on the latest night, so the survival card adds a warning: daytime EVA only." },
+      { id: "hot", title: "🌡 Too hot for the suit (hypothetical 0 °C suit limit)", demo: true, scenario: "standard", temp: { min: -129, max: 0 },
+        story: "The signed boxwork EVA (GO with standard suits), with a hypothetical suit rated only to 0 °C ground temperature (this run only). Curiosity's REMS measured up to about +4 °C on the latest sol, so the survival card refuses: too hot for the suit." },
     ];
     const showcaseSel = document.getElementById("showcaseSel"), showcaseStory = document.getElementById("showcaseStory");
     for (const sc of SHOWCASES) showcaseSel.add(new Option(sc.title, sc.id));
@@ -5275,6 +5275,9 @@
       const sc = SHOWCASES.find((x) => x.id === showcaseSel.value);
       if (!sc) return;
       if (sc.demo) {
+        // a demo scenario may bring a hypothetical suit temperature limit (this run only)
+        showcaseTemp = sc.temp ?? null;
+        showcaseEntity = !!sc.temp;
         showTab("winCrew");
         loadDemoRoute().then(() => {
           // the file names its own scenario; the showcase's suit scenario wins (and re-builds Crew A / B)
@@ -5295,6 +5298,9 @@
       routeStopsChanged();                       // also ends any earlier showcase override
       showcaseTemp = sc.temp ?? null;
       showcaseEntity = !!(sc.crew || sc.temp);
+      // a terrain scenario uses standard suits: a suit fault picked by an earlier (demo) scenario
+      // must not leak into it
+      if (svScenario.value !== "standard") svScenario.value = "standard";
       if (sc.crew) crew?.showcase?.(sc.crew);
       if (sc.layers) showPathLayersFor(sc.layers.flatMap((k) => PATH_LAYERS.find((L) => L.key === k)?.reasons ?? [])).catch(() => {});
       const lons = sc.stops.map((st) => st.lon), lats = sc.stops.map((st) => st.lat);
