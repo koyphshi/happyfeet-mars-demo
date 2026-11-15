@@ -19,19 +19,19 @@ and caches NASA Trek tiles (`/trek/*`) and relays REMS weather (`/rems`). A stat
 globe (Cesium falls back to the pinned jsDelivr build) and the **demo excursion** (`route.json`), but
 cannot plan new routes.
 
-## Live now: full server from yasser's laptop (Cloudflare quick tunnel)
+## Live now: full server on Render
 
-Current URL: run `mars-live-url` on yasser's laptop (a quick tunnel gets a **new URL every time it restarts**).
-At 09:00 on 15 Nov it was https://resist-toxic-hints-respected.trycloudflare.com.
-User services `mars-live` (serve.mjs from the worktree `~/happyfeet-live`, port 8081) and `mars-tunnel`
-(`cloudflared --protocol http2`; QUIC kept dropping on this network). Linger on, so they run without a login.
-`~/.local/tools/live-update.sh` moves it to `origin/main` and patches only that copy, so visitors get Cesium
-from jsDelivr and Trek tiles from trek.nasa.gov rather than through the laptop's uplink.
-Verified 15 Nov 09:00 with headless Chrome over the public URL: demo excursion GO, a new route planned live
-(terrain streamed, survival card verdict). Limits: down when the laptop sleeps or is offline; URL changes on restart.
-Use the GitHub Pages link as the stable submission link.
+**https://happyfeet-mars.onrender.com**: Docker web service `happyfeet-mars` (free plan, Frankfurt, health check
+`/healthz`). Render can only read repos under koyphshi's account, so it builds the branch **`server`** of
+`koyphshi/happyfeet-mars-demo`, a mirror of `Noxx67/happyfeet-mars-trip` `main`. It auto-deploys on every push to
+that branch. To update after a merge (yasser's laptop): `~/.local/tools/render-sync.sh` pushes `main` to `server`
+and waits until Render is live. Verified 15 Nov ~11:00 with cold headless Chrome: healthz OK, data 8/8 verified,
+demo excursion GO, a new route planned live. The free plan sleeps after ~15 min idle (first request ~1 min).
 
-## Render (recommended — one manual step)
+A laptop-hosted fallback (Cloudflare quick tunnel, `mars-live-url` prints the current URL) also exists, but the
+URL changes on restart and it is down when the laptop sleeps. Use Render.
+
+## Render: how it was set up (for reference)
 
 1. Merge the branch with `Dockerfile` + `render.yaml` into `main` (or pick the branch in Render).
 2. **Manual step:** sign in at https://dashboard.render.com → *New* → *Blueprint* → connect the GitHub
