@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jezero panorama walk</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root { color-scheme: dark; --cyan: #75e8ff; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #090c0e; color: #f2ece5; font: 14px/1.35 system-ui, sans-serif; }
+    #viewer { position: fixed; inset: 0; }
+    #hud { position: fixed; z-index: 10; inset: 0 0 auto; display: flex; align-items: flex-start; gap: 12px; padding: max(10px, env(safe-area-inset-top)) 14px 10px; background: linear-gradient(#000b, #0000); pointer-events: none; }
+    #hud > * { pointer-events: auto; }
+    button { border: 1px solid #ffffff3d; border-radius: 9px; background: #0009; color: #fff; padding: 9px 13px; font: inherit; cursor: pointer; }
+    #enterVr { border-color: #75e8ff; background: #06313bea; font-weight: 700; white-space: nowrap; }
+    button:disabled { opacity: .48; cursor: default; }
+    #where { min-width: 0; flex: 1; text-shadow: 0 1px 4px #000; }
+    #title { display: block; font-size: 15px; }
+    #meta, #progress { color: #d7e4e8; font-size: 12px; }
+    #controls { position: fixed; z-index: 10; inset: auto 0 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px max(12px, env(safe-area-inset-bottom)); background: linear-gradient(#0000, #000b); }
+    #progressWrap { min-width: 190px; text-align: center; text-shadow: 0 1px 4px #000; }
+    #loading, #error { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: #0b0e11ef; text-align: center; }
+    #loading[hidden], #error[hidden] { display: none; }
+    #loading .box, #error .box { max-width: 520px; }
+    #error h1 { margin: 0 0 8px; font-size: 18px; }
+    #error p { margin: 0 0 16px; color: #d8cfc4; }
+    #error a { color: var(--cyan); }
+    #help { position: fixed; z-index: 8; bottom: 68px; left: 50%; transform: translateX(-50%); color: #ffffffb0; font-size: 11px; text-shadow: 0 1px 4px #000; pointer-events: none; white-space: nowrap; }
+    @media (max-width: 620px) { #help { display: none; } #controls { gap: 7px; } button { padding: 8px 10px; } #progressWrap { min-width: 100px; } }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+  <header id="hud">
+    <button id="back" type="button">← Map</button>
+    <div id="where"><strong id="title">Jezero panorama walk</strong><div id="meta">Loading route…</div></div>
+    <button id="enterVr" type="button" hidden>Enter VR</button>
+  </header>
+  <footer id="controls">
+    <button id="prev" type="button">← Prev</button>
+    <div id="progressWrap"><div id="progress">Stop 1</div></div>
+    <button id="next" type="button">Next →</button>
+    <button id="exitWalk" type="button" hidden>Exit walk</button>
+  </footer>
+  <div id="help">In VR, point at the floor arrow and press trigger to jump · at point B, select Exit walk</div>
+  <div id="loading"><div class="box">Loading the original Jezero high-resolution panorama…</div></div>
+  <div id="error" hidden><div class="box"><h1>Jezero walk unavailable</h1><p id="errorText"></p><a href="../#route">Return to the Path tab.</a></div></div>
+  <script src="../fu-vtour/tour.js"></script>
+  <script type="module" src="./walk.js?v=20261115-enter-vr-eye-arrow-v2"></script>
+</body>
+</html>

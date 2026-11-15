@@ -9,12 +9,20 @@ import { stat, mkdir, readFile, writeFile, rename, open, rm, readdir } from "nod
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { exec } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createGzip } from "node:zlib";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 8080;
 // 127.0.0.1 by default (only this machine). A hosted deploy sets HOST=0.0.0.0 (see Dockerfile).
 const host = process.env.HOST || "127.0.0.1";
 const TREK_TILES = "https://trek.nasa.gov/tiles";
+const JEZERO_VTOUR_HOST = "https://maps.planet.fu-berlin.de/vtour";
+// Mastcam-Z full panoramas live on an ASU host that does not send CORS headers, so the
+// Quest/browser cannot use them as WebGL textures directly. Proxy the untouched JPEGs
+// through this origin (and cache them) instead of re-encoding them.
+const PANO_HOST = "mastcamz.asu.edu";
+const PANO_CACHE = path.join(root, ".pano-cache");
 // Trek is slow (2-10 s per tile), so every tile we fetch is kept on disk and served
 // instantly next time. Delete the folder to clear it.
 const CACHE_DIR = path.join(root, ".tile-cache");
@@ -99,6 +107,48 @@ async function proxyTrek(url, res) {
   } catch (err) {
     send(res, 502, `Could not reach NASA Trek: ${err.message}`);
   }
+}
+
+async function proxyPano(url, res) {
+  const raw = url.searchParams.get("u");
+  let target;
+  try {
+    target = new URL(raw);
+  } catch {
+    return send(res, 400, "Bad panorama URL");
+  }
+  if (target.protocol !== "https:" || target.hostname !== PANO_HOST) {
+    return send(res, 403, "Panorama host not allowed");
+  }
+  const key = createHash("sha1").update(target.href).digest("hex");
+  const file = path.join(PANO_CACHE, key + ".jpg");
+  const headers = {
+    "Content-Type": "image/jpeg",
+    "Cache-Control": "public, max-age=2592000, immutable",
+    "Access-Control-Allow-Origin": "*",
+  };
+  try {
+    const info = await stat(file);
+    if (info.isFile()) {
+      res.writeHead(200, { ...headers, "Content-Length": info.size });
+      return createReadStream(file).pipe(res);
+    }
+  } catch {}
+
+  const upstream = await fetch(target.href, {
+    headers: { "User-Agent": "happyfeet-mars-trip/1.0" },
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!upstream.ok) return send(res, upstream.status, `Panorama HTTP ${upstream.status}`);
+  const body = Buffer.from(await upstream.arrayBuffer());
+  await mkdir(PANO_CACHE, { recursive: true });
+  await writeFile(file, body);
+  res.writeHead(200, {
+    ...headers,
+    "Content-Type": upstream.headers.get("content-type") ?? headers["Content-Type"],
+    "Content-Length": body.length,
+  });
+  res.end(body);
 }
 
 // Fetch the low-zoom global tiles in the background so the whole planet appears at once
@@ -716,13 +766,40 @@ async function serveFile(url, res) {
   }
   if (!info.isFile()) return send(res, 404, "Not found");
 
+  const type = types[path.extname(file).toLowerCase()] ?? "application/octet-stream";
+  const compressible = /\.(?:html|js|mjs|css|json|svg|xml)$/i.test(file);
+  const acceptsGzip = /(?:^|,)\s*gzip(?:\s*;|\s*(?:,|$))/i.test(res.req.headers["accept-encoding"] ?? "");
+  const gzip = compressible && acceptsGzip;
   res.writeHead(200, {
-    "Content-Type": types[path.extname(file).toLowerCase()] ?? "application/octet-stream",
-    "Content-Length": info.size,
+    "Content-Type": type,
+    ...(gzip ? { "Content-Encoding": "gzip", "Vary": "Accept-Encoding" } : { "Content-Length": info.size }),
   });
-  createReadStream(file)
-    .on("error", () => res.destroy())
-    .pipe(res);
+  const stream = createReadStream(file).on("error", () => res.destroy());
+  if (gzip) stream.pipe(createGzip()).pipe(res);
+  else stream.pipe(res);
+}
+
+async function proxyJezeroVtour(url, res) {
+  let rest;
+  try { rest = decodeURIComponent(url.pathname.slice("/fu-vtour".length)); }
+  catch { return send(res, 400, "Bad virtual-tour URL"); }
+  if (!rest.startsWith("/") || rest.includes("..")) return send(res, 403, "Forbidden");
+  const upstream = await fetch(`${JEZERO_VTOUR_HOST}${rest}${url.search}`, { signal: AbortSignal.timeout(60_000) });
+  let body = Buffer.from(await upstream.arrayBuffer());
+  const ext = path.extname(rest).toLowerCase();
+  if (ext === ".xml" || ext === ".css") {
+    const text = body.toString("utf8")
+      .replaceAll("https://maps.planet.fu-berlin.de/vtour/", "/fu-vtour/")
+      .replaceAll("http://maps.planet.fu-berlin.de/vtour/", "/fu-vtour/")
+      .replaceAll("/vtour/", "/fu-vtour/");
+    body = Buffer.from(text, "utf8");
+  }
+  res.writeHead(upstream.status, {
+    "Content-Type": upstream.headers.get("content-type") ?? types[ext] ?? "application/octet-stream",
+    "Content-Length": body.length,
+    "Cache-Control": upstream.ok ? "public, max-age=3600" : "no-store",
+  });
+  res.end(body);
 }
 
 // ---------------------------------------------------------------- custom spots
@@ -816,6 +893,16 @@ const server = http.createServer((req, res) => {
   }
   if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "Method not allowed");
   if (url.pathname === "/__proxy") return send(res, 200, "ok"); // lets the page detect this server
+  if (url.pathname === "/favicon.ico") {
+    res.writeHead(204, { "Cache-Control": "public, max-age=86400" });
+    return res.end();
+  }
+  if (url.pathname === "/pano") {
+    return proxyPano(url, res).catch((err) => send(res, 502, `Could not load panorama: ${err.message}`));
+  }
+  if (url.pathname.startsWith("/fu-vtour/")) {
+    return proxyJezeroVtour(url, res).catch((err) => send(res, 502, `Could not load Jezero panorama asset: ${err.message}`));
+  }
   if (url.pathname === "/rems") return serveRems(res);
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });

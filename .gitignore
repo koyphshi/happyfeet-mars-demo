@@ -1,6 +1,7 @@
 /target
 /web/node_modules
 /web/.tile-cache
+/web/.pano-cache
 /web/data
 
 CLAUDE-BRIEF.md
