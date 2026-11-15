@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { planTerrainRoute, explainLeg, roughnessHazard } from "../pathfinding.js";
-import { rasterHazard, temperatureCheck, tiFromIndex, indexFromTi, HAZARD_DEFAULTS } from "../hazards.js";
+import { rasterHazard, temperatureCheck, tiFromIndex, HAZARD_DEFAULTS } from "../hazards.js";
 
 // 61 x 31 flat cells of ~59 m near Gale, with optional features
 function grid(fill = () => 0) {
@@ -60,10 +60,11 @@ test("slow cells cost more but stay admissible: route still found, avoids them w
 });
 
 test("raster hazards: soft dust blocks low index, dust cover only slows", () => {
-  const soft = rasterHazard({ id: "softDust", label: "soft dust", lowIsBad: true, blockBelow: 0.12, slowBelow: 0.25, slowMax: 1.6, sample: () => 0.05 });
+  const soft = rasterHazard({ id: "softDust", label: "soft dust", lowIsBad: true, sample: () => 0.05 });
   assert.ok(soft.blocks(0.05) && !soft.blocks(0.5));
   assert.equal(soft.factor(0.5), 1);
-  assert.ok(soft.factor(0.25) > 1 && soft.factor(0.25) < 1.6, "between MSL block (100 TIU) and MER slow (150 TIU)");
+  assert.ok(soft.factor(0.15) > 1 && soft.factor(0.15) < 1.6, "between the block (10%) and slow (25%) lines");
+  assert.match(soft.describe(0.01), /lowest colour/);
   const dust = rasterHazard({ id: "dustCover", label: "dust", lowIsBad: false, slowAbove: 0.6, slowMax: 1.3, sample: () => 0.9 });
   assert.ok(!dust.blocks(1));
   assert.ok(Math.abs(dust.factor(1) - 1.3) < 1e-9);
@@ -78,12 +79,12 @@ test("temperature check: Gale uses REMS, elsewhere says no data", () => {
 
 test("Settings thresholds override the defaults", () => {
   const raster = { id: "softDust", label: "soft dust", lowIsBad: true, sample: () => 0 };
-  const strict = rasterHazard(raster, { softBlockTi: 300 }), loose = rasterHazard(raster, { softBlockTi: 20, softSlowTi: 40 });
-  const gale = indexFromTi(330), meridiani = 0.36;
+  const strict = rasterHazard(raster, { softBlockIdx: 50 }), loose = rasterHazard(raster, { softBlockIdx: 2, softSlowIdx: 5 });
+  const gale = 0.67, meridiani = 0.36;
   assert.ok(!rasterHazard(raster).blocks(meridiani), "default lets every landed site through");
   assert.ok(strict.blocks(meridiani) && !strict.blocks(gale));
   assert.ok(!loose.blocks(0.1) && loose.factor(0.1) === 1);
-  assert.ok(Math.abs(tiFromIndex(0.67) - 330) < 1e-9);
+  assert.ok(Math.abs(tiFromIndex(0.36) - 238.7) < 0.1, "rough 3-point fit");
   const cold = temperatureCheck([{ lon: 137.4, lat: -4.8 }], { soles: [{ sol: "1", min_gts_temp: "-84", max_gts_temp: "4" }] }, { min: -50, max: 40 });
   assert.equal(cold.level, "warn");
   assert.equal(HAZARD_DEFAULTS.tempMinC, -129);
