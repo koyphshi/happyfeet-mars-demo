@@ -3651,6 +3651,9 @@
     const routeAddButton = document.getElementById("routeAddBtn");
     const routeWalkButton = document.getElementById("routeWalkBtn");
     const walkHint = document.getElementById("walkHint");
+    // Walk mode loads the FU Berlin panorama tour through serve.mjs (/fu-vtour proxy); the static
+    // demo has no proxy, so hide it there instead of offering a button that 404s.
+    if (!USE_PROXY) { routeWalkButton.hidden = true; walkHint.hidden = true; }
     const routeCalcBtn = document.getElementById("routeCalcBtn");
     const routeLoopBox = document.getElementById("routeLoop");
     const routeFastestBox = document.getElementById("routeFastest");
