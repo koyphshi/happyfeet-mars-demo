@@ -118,3 +118,12 @@ test("densify keeps indices on the original path (route.json / VR stay valid)", 
   assert.equal(r.timeline[1].index, 6);
   for (const c of r.crew) assert.ok(c.walk_back.index <= 6);
 });
+
+test("densify across the ±180° seam samples the short way round", () => {
+  const p = [{ lon: 179.99, lat: 0, elevationM: 0 }, { lon: -179.99, lat: 0, elevationM: 0 }]; // ~1.2 km apart
+  const seen = [];
+  const s = segmentsOf(p, undefined, { heightAt: (lon) => { seen.push(lon); return 0; }, densifyM: 100 })[0];
+  assert.ok(s.d < 2000, `segment is short (${s.d} m)`);
+  assert.ok(seen.length >= 10);
+  for (const lon of seen) assert.ok(Math.abs(lon) > 179.98 && Math.abs(lon) <= 180, `sample ${lon} stays near the seam`);
+});

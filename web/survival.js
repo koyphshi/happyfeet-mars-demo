@@ -103,8 +103,12 @@ export function segmentsOf(path, p = SURVIVAL_PARAMS, opts = {}) {
     const za = a.elevationM ?? 0, zb = b.elevationM ?? 0;
     const n = heightAt && step > 0 ? Math.max(1, Math.ceil(d / step)) : 1;
     const z = [za];
+    let dLon = b.lon - a.lon;                       // shortest way round across the ±180° seam
+    if (dLon > 180) dLon -= 360; else if (dLon < -180) dLon += 360;
     for (let k = 1; k < n; k++) {
-      const f = k / n, lon = a.lon + (b.lon - a.lon) * f, lat = a.lat + (b.lat - a.lat) * f;
+      const f = k / n, lat = a.lat + (b.lat - a.lat) * f;
+      let lon = a.lon + dLon * f;
+      if (lon > 180) lon -= 360; else if (lon < -180) lon += 360;
       const h = heightAt(lon, lat);
       z.push(Number.isFinite(h) ? h : za + (zb - za) * f);
     }
