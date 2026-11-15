@@ -19,6 +19,18 @@ and caches NASA Trek tiles (`/trek/*`) and relays REMS weather (`/rems`). A stat
 globe (Cesium falls back to the pinned jsDelivr build) and the **demo excursion** (`route.json`), but
 cannot plan new routes.
 
+## Live now: full server from yasser's laptop (Cloudflare quick tunnel)
+
+Current URL: run `mars-live-url` on yasser's laptop (a quick tunnel gets a **new URL every time it restarts**).
+At 09:00 on 15 Nov it was https://resist-toxic-hints-respected.trycloudflare.com.
+User services `mars-live` (serve.mjs from the worktree `~/happyfeet-live`, port 8081) and `mars-tunnel`
+(`cloudflared --protocol http2`; QUIC kept dropping on this network). Linger on, so they run without a login.
+`~/.local/tools/live-update.sh` moves it to `origin/main` and patches only that copy, so visitors get Cesium
+from jsDelivr and Trek tiles from trek.nasa.gov rather than through the laptop's uplink.
+Verified 15 Nov 09:00 with headless Chrome over the public URL: demo excursion GO, a new route planned live
+(terrain streamed, survival card verdict). Limits: down when the laptop sleeps or is offline; URL changes on restart.
+Use the GitHub Pages link as the stable submission link.
+
 ## Render (recommended — one manual step)
 
 1. Merge the branch with `Dockerfile` + `render.yaml` into `main` (or pick the branch in Render).
