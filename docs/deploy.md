@@ -1,11 +1,37 @@
 # Deploying the viewer
 
+## Live now: static demo (GitHub Pages)
+
+**https://koyphshi.github.io/happyfeet-mars-demo/** (VR: `…/vr.html`), built by `scripts/build-static.sh`
+and pushed to the repo `koyphshi/happyfeet-mars-demo` (do not edit it by hand). Verified 15 Nov 08:45 with a
+cold headless Chrome: globe, layers, demo excursion GO, degraded scenario REFUSED, tamper test refused.
+Not available there: planning NEW routes (needs `/terrain` from the Node server), the Trek tile cache, live REMS.
+
+Update it after a merge to `main`:
+
+```sh
+scripts/build-static.sh /tmp/site && cd /tmp/site && git init -b main && git add -A && \
+  git commit -m "Static demo build" && git push -f git@github.com:koyphshi/happyfeet-mars-demo.git main
+```
+
 The page needs `web/serve.mjs`: it streams MOLA terrain (`/terrain/*`) for the route planner, proxies
 and caches NASA Trek tiles (`/trek/*`) and relays REMS weather (`/rems`). A static host alone shows the
 globe (Cesium falls back to the pinned jsDelivr build) and the **demo excursion** (`route.json`), but
 cannot plan new routes.
 
-## Render (recommended — one manual step)
+## Live now: full server on Render
+
+**https://happyfeet-mars.onrender.com**: Docker web service `happyfeet-mars` (free plan, Frankfurt, health check
+`/healthz`). Render can only read repos under koyphshi's account, so it builds the branch **`server`** of
+`koyphshi/happyfeet-mars-demo`, a mirror of `Noxx67/happyfeet-mars-trip` `main`. It auto-deploys on every push to
+that branch. To update after a merge (yasser's laptop): `~/.local/tools/render-sync.sh` pushes `main` to `server`
+and waits until Render is live. Verified 15 Nov ~11:00 with cold headless Chrome: healthz OK, data 8/8 verified,
+demo excursion GO, a new route planned live. The free plan sleeps after ~15 min idle (first request ~1 min).
+
+A laptop-hosted fallback (Cloudflare quick tunnel, `mars-live-url` prints the current URL) also exists, but the
+URL changes on restart and it is down when the laptop sleeps. Use Render.
+
+## Render: how it was set up (for reference)
 
 1. Merge the branch with `Dockerfile` + `render.yaml` into `main` (or pick the branch in Render).
 2. **Manual step:** sign in at https://dashboard.render.com → *New* → *Blueprint* → connect the GitHub

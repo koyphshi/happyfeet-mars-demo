@@ -1,10 +1,11 @@
-{"schema":"happyfeet.manifest/1","created":"2026-11-15T07:18:04.719Z","key_id":"6ba5b0100eee8d8a","files":[
+{"schema":"happyfeet.manifest/1","created":"2026-11-15T11:01:16.016Z","key_id":"6ba5b0100eee8d8a","files":[
   {"path":"public/data/curiosity/curiosity_samples.geojson","size":45232,"blake3":"63939a41a696ecfde3c52b3278c60384355abd2a12ba27066404093a2044564a"},
   {"path":"public/data/curiosity/curiosity_targets.geojson","size":3907409,"blake3":"251e31d3cbb132d3320d2a85a7d79e8d6d8a54099aa41abcac98e660d25fcc67"},
   {"path":"public/data/curiosity/curiosity_traverse.geojson","size":494335,"blake3":"06b121b53f1e3d8125801d0ea658ce1925e5e3534070366cb5c164920448ed04"},
   {"path":"public/data/nomenclature/mars_named_features.json","size":490507,"blake3":"e6334e560a5828d1c12e0f446eb36a2f1dce07d123c6471a2ec019fad0553a2c"},
+  {"path":"public/data/panoramas/jezero_virtual_viewpoints.json","size":3272,"blake3":"38869e4aafe976f0ff02a89cb59aa765548956f4c87a488f3f9d6cb43575f0e8"},
   {"path":"public/data/panoramas/perseverance_mastcamz.json","size":58288,"blake3":"2a3c5082dd4ee1177793b40fde032304050bd704d4bb07935408fbb7b9ef72dd"},
   {"path":"public/data/params.json","size":1201,"blake3":"9e01a110cd10ad140a899d6fc7938a3e7f42f73edd21872de4db5d946bc96e7e"},
   {"path":"public/data/rems/latest.json","size":12430,"blake3":"ece2928ad38a404f150685f87ef9af56884874fe28324126f542358ec50c29b8"},
-  {"path":"public/data/route.json","size":182744,"blake3":"720f260b4e5a7d4fe6bd2e53d77f81cd3d7122b912b626a0b146ddad6a380ad2"}
+  {"path":"public/data/route.json","size":182956,"blake3":"36db9a844bdfe00a9637fa3e083b66dd6d58078a4f951a910cea4814a58626eb"}
 ]}

@@ -129,3 +129,29 @@ Speeds are averages including hazard stops, not top speeds.
 | rover slope slowdown | speed × max(0.25, 1 − 0.6 · slope ÷ maxSlope) | 0.6, 0.25 | – | — | ASSUMED |
 | rover battery uphill / idle factor | draw × (1 + 2 · grade) moving, × 0.15 parked | 2, 0.15 | – | — | ASSUMED |
 | `commsKm` | radio range to base for line of sight | 10 | km | — | ASSUMED |
+
+## Route hazards (pathfinding.js, hazards.js)
+
+Optional planner constraints, off by default. A blocked cell is never entered. A slowed cell
+multiplies the cost of entering it. The "Why this route" panel names every constraint that
+pushed the route off the direct line. **Every threshold below can be changed in Settings >
+Route hazards.** The values here are the defaults; "Defaults" in Settings restores them.
+
+| Symbol | Meaning | Default | Unit | Source | Status |
+|---|---|---|---|---|---|
+| roughness | RMS of a cell's 8 neighbours about the local slope plane, MOLA z6 (~2.6 km cells) | — | m | computed from the planner's DEM; same idea as km-scale MOLA roughness (Kreslavsky & Head 2000, JGR, "Kilometer-scale roughness of Mars: results from MOLA data analysis"), not the same metric | DERIVED |
+| `roughBlockM` | roughness that blocks a cell | 400 | m | no published threshold for this metric; measured 2026-11-15: Gale p50 70 m, p90 197 m, p99 356 m, so under 1 % of Gale is blocked | ASSUMED (calibrated, editable) |
+| `roughFreeM`, `roughDoubleM` | no cost up to 40 m; cost × 2 at 200 m (linear) | 40, 200 | m | Gale floor along the demo excursion = 41 m; InSight plains p50 4 m, p90 14 m | ASSUMED (calibrated, editable) |
+| thermal inertia index | position (0–1) on the colour ramp of Trek `TES_Thermal_Inertia`, level 1 (~21 km/px). Trek's catalog gives the source as Putzig et al. 2005, Icarus 173, 325–341 (20 ppd, ~3 km) | — | – | ramp decoded by hue; Trek publishes no legend or min/max, so linear vs log is unknown (checked by agent:yasser, 2026-11-15); direction checked 2026-11-15: Tharsis, Amazonis, Arabia, Olympus Mons = 0; Gale 0.67, Jezero 0.52, Gusev 0.45, Meridiani 0.36, Acidalia 0.62 | DERIVED |
+| `TI_FIT` | index → thermal inertia, rough guide only: TI ≈ 121 + 327 · index | 121, 327 | TIU | 3-point fit by agent:yasser (#29, 2026-11-15): Meridiani 0.36 ↔ ~211 TIU and Gusev 0.45 ↔ ~307 TIU (Golombek et al. 2003, JGR 108(E12) 8072; Jakosky et al. 2006, JGR 111 E08008), Gale 0.67 ↔ 250–410 TIU (Fergason et al. 2012, THEMIS). rms 28 TIU; a log fit is as good; no dust-low anchor, so the ramp bottom (~120–150 TIU) is an extrapolation. Order-of-magnitude check, not a calibration | DERIVED (rough) |
+| `softBlockIdx` | cells in the bottom of the thermal-inertia colour ramp are blocked (dust-dominated) | 10 | % of ramp | defined on the map index because the ramp bottom (~120–150 TIU) lies above MSL's 100 TIU dust-hazard line (MSL Engineering User Guide), so a TIU threshold cannot be applied to this map; every landed site is at 35–70 % | ASSUMED (qualitative, editable) |
+| `softSlowIdx` | below this, cost rises linearly to `softSlowMax` | 25 | % of ramp | ≈ 200 TIU on the rough fit, near MER's 125–165 TIU avoid line (Golombek et al. 2003) | ASSUMED (editable) |
+| `softSlowMax` | cost just above the block line | 1.6 | × | — | ASSUMED (editable) |
+| dust index | position (0–1) on the colour ramp of Trek `TES_Dust`, level 1. Source: TES dust cover index, Ruff & Christensen 2002, JGR 107(E12) 5127 (16 ppd, ~3.5 km) | — | – | decoded by hue; no published colour scale; less consistent than thermal inertia (Olympus Mons reads 0); no legend or calibration found, so it never blocks a cell | DERIVED (uncalibrated) |
+| `dustSlowAbove`, `dustSlowMax` | above 60 % of the scale, cost rises linearly to × 1.3 | 60, 1.3 | %, × | — | ASSUMED (editable) |
+| `tempMinC`, `tempMaxC` | ground-temperature limits of the route temperature check | −129, +39 | °C | the Mars EVA design envelope, not a rating of any real suit: worst-case cold / hot surface temperatures at EVA-realistic sites (≤ 7 Torr) from the JPL Mars GCM, 144 K and 312 K (NASA, "Mars Portable Life Support System Status and Plan", ICES-2026-126, Table 3, https://ntrs.nasa.gov/api/citations/20260003024/downloads/Final_ICES2026_Mars_PLSS_Plan.pdf) | CITED (editable) |
+
+Temperature is not a planner cost. No global surface-temperature map exists in the data the
+app uses. Only Curiosity REMS at Gale measures temperature, so the check runs on whole routes
+within ~90 km of Gale, and elsewhere it says "no data". With the default envelope, a refusal
+means conditions beyond NASA's worst case. Tighten the limits in Settings to model a specific suit.

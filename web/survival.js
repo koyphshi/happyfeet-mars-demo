@@ -88,25 +88,78 @@ export function rates(metabolicW, p = SURVIVAL_PARAMS) {
 }
 
 // Split a path into segments with distance, grade, slope and duration.
-export function segmentsOf(path, p = SURVIVAL_PARAMS) {
+// opts.heightAt(lon, lat) -> metres (optional): long segments are then priced piece by piece,
+// every opts.densifyM metres (default 100) along the segment, with interior heights sampled from
+// the terrain. Without it a long any-angle segment is priced on its end-to-end grade only, which
+// averages out the climbs and descents inside it. Segment indices always refer to the input path.
+export function segmentsOf(path, p = SURVIVAL_PARAMS, opts = {}) {
+  const heightAt = typeof opts.heightAt === "function" ? opts.heightAt : null;
+  const step = opts.densifyM ?? 100;
   const segs = [];
   for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i];
     const d = surfaceDistanceM(a, b);
-    if (d === 0) { segs.push({ i, d: 0, grade: 0, slopeDeg: 0, t: 0 }); continue; }
-    const grade = ((b.elevationM ?? 0) - (a.elevationM ?? 0)) / d;
-    const v = walkingSpeed(grade, p);
-    segs.push({ i, d, grade, slopeDeg: Math.atan(Math.abs(grade)) / RAD, v, t: d / v });
+    if (d === 0) { segs.push({ i, d: 0, grade: 0, slopeDeg: 0, t: 0, pieces: [] }); continue; }
+    const za = a.elevationM ?? 0, zb = b.elevationM ?? 0;
+    const n = heightAt && step > 0 ? Math.max(1, Math.ceil(d / step)) : 1;
+    const z = [za];
+    let dLon = b.lon - a.lon;                       // shortest way round across the ±180° seam
+    if (dLon > 180) dLon -= 360; else if (dLon < -180) dLon += 360;
+    for (let k = 1; k < n; k++) {
+      const f = k / n, lat = a.lat + (b.lat - a.lat) * f;
+      let lon = a.lon + dLon * f;
+      if (lon > 180) lon -= 360; else if (lon < -180) lon += 360;
+      const h = heightAt(lon, lat);
+      z.push(Number.isFinite(h) ? h : za + (zb - za) * f);
+    }
+    z.push(zb);
+    const pieces = [];
+    let t = 0, steepest = 0;
+    for (let k = 1; k <= n; k++) {
+      const pd = d / n, grade = (z[k] - z[k - 1]) / pd;
+      const v = walkingSpeed(grade, p);
+      pieces.push({ d: pd, grade });
+      t += pd / v;
+    }
+    // Slope mask on ONE surface: a vertex's stored height can come from a coarser cell than the sampler
+    // (e.g. a stop snapped to a 2.6 km MOLA cell), so mixing the two in the first / last piece would show
+    // an artificial cliff. Pricing above keeps the stored endpoint heights (reference numbers unchanged).
+    const zs = z.slice();
+    if (heightAt && n > 1) {
+      const ha = heightAt(a.lon, a.lat), hb = heightAt(b.lon, b.lat);
+      if (Number.isFinite(ha)) zs[0] = ha;
+      if (Number.isFinite(hb)) zs[n] = hb;
+    }
+    for (let k = 1; k <= n; k++) steepest = Math.max(steepest, Math.abs((zs[k] - zs[k - 1]) / (d / n)));
+    const grade = (zb - za) / d;
+    segs.push({ i, d, grade, slopeDeg: Math.atan(steepest) / RAD, v: d / t, t, pieces });
   }
   return segs;
 }
 
 function use(seg, crew, p, reverse = false) {
-  const grade = reverse ? -seg.grade : seg.grade;
-  const v = seg.d ? walkingSpeed(grade, p) : 0;
-  const t = seg.d ? seg.d / v : 0;
-  const r = rates(metabolicPower(grade, v, crew, p), p);
-  return { t, o2: r.o2 * t, water: r.water * t, battery: r.battery * t };
+  const out = { t: 0, o2: 0, water: 0, battery: 0 };
+  for (const piece of seg.pieces ?? [{ d: seg.d, grade: seg.grade }]) {
+    if (!piece.d) continue;
+    const grade = reverse ? -piece.grade : piece.grade;
+    const v = walkingSpeed(grade, p), t = piece.d / v;
+    const r = rates(metabolicPower(grade, v, crew, p), p);
+    out.t += t; out.o2 += r.o2 * t; out.water += r.water * t; out.battery += r.battery * t;
+  }
+  return out;
+}
+
+// Surface temperature vs suit limits (°C). Ground hotter than the suit's limit refuses the EVA;
+// colder at night only warns (a daytime EVA can still go). Same rule as hazards.js temperatureCheck.
+export function environmentCheck(env) {
+  if (!env) return null;
+  const { groundMinC, groundMaxC, suitMinC, suitMaxC, source } = env;
+  const where = `ground ${groundMinC ?? "?"}…${groundMaxC ?? "?"} °C${source ? ` (${source})` : ""}`;
+  if (Number.isFinite(groundMaxC) && Number.isFinite(suitMaxC) && groundMaxC > suitMaxC)
+    return { level: "refuse", code: "temperature_hot", text: `Too hot for the suit: ${where}, suit limit ${suitMaxC} °C.` };
+  if (Number.isFinite(groundMinC) && Number.isFinite(suitMinC) && groundMinC < suitMinC)
+    return { level: "warn", code: "temperature_cold", text: `Too cold at night: ${where}, suit limit ${suitMinC} °C. Daytime EVA only.` };
+  return null;
 }
 
 // Line of sight from the haven antenna to each path point, sampled on the terrain.
@@ -140,14 +193,16 @@ const fmtKm = (m) => `${(m / 1000).toFixed(2)} km`;
 // Evaluate a route.
 //   path:      [{lon, lat, elevationM}] starting at the haven
 //   stops:     [{name, index}] path indices of the science stops (and, if looped, the final haven)
-//   options:   { crew, params, visible (bool per point, from commsVisibility), returnToHaven }
+//   options:   { crew, params, visible (bool per point, from commsVisibility), returnToHaven,
+//                heightAt (lon, lat -> m; densifies long segments), densifyM (default 100),
+//                environment: { groundMinC, groundMaxC, suitMinC, suitMaxC, source } }
 // If the path does not end at the haven and returnToHaven is true (default), the return leg is
 // the path walked backwards.
 export function evaluateRoute(path, stops = [], options = {}) {
   const p = { ...SURVIVAL_PARAMS, ...(options.params || {}) };
   const crew = options.crew || DEFAULT_CREW;
   if (!Array.isArray(path) || path.length < 2) throw new RangeError("path needs at least two points");
-  const segs = segmentsOf(path, p);
+  const segs = segmentsOf(path, p, { heightAt: options.heightAt, densifyM: options.densifyM });
   const loop = surfaceDistanceM(path[0], path.at(-1)) < 50;
   const returnLeg = !loop && options.returnToHaven !== false;
   const stopAt = new Map(stops.filter((s) => s.index > 0 && s.index < path.length).map((s) => [s.index, s]));
@@ -189,6 +244,9 @@ export function evaluateRoute(path, stops = [], options = {}) {
   const returnT = returnLeg ? segs.reduce((s, g) => s + use(g, crew[0], p, true).t, 0) : 0;
   const returnD = returnLeg ? outboundD : 0;
   if (returnLeg) timeline.push({ index: 0, name: "Haven (return)", t_s: Math.round(outboundT + returnT), dist_m: Math.round(outboundD + returnD) });
+
+  const env = environmentCheck(options.environment);
+  if (env) warnings.push(env);
 
   const members = crew.map((c) => evaluateMember(c, segs, stopAt, p, returnLeg, path));
   const failures = members.filter((m) => m.failure);

@@ -37,6 +37,8 @@
     .setRow select { flex: 1; min-width: 0; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px;
       font: 12.5px system-ui, sans-serif; padding: 3px 5px; }
     .setRow input[type=range] { flex: 1; min-width: 0; }
+    .setRow input.hzNum { width: 64px; flex: none; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 1px 4px; }
+    .setRow .hzUnit { color: #999; font-size: 11px; flex: 1; min-width: 0; }
     .setRow[hidden] { display: none; }
     .setNote { color: #aaa; font-size: 11.5px; margin-top: 3px; }
     .setCheck { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -287,6 +289,18 @@
     #routeControls button { margin: 2px 4px 2px 0; padding: 4px 7px; cursor: pointer; }
     #routeControls button.on { border-color: #ffd54f; color: #ffe082; }
     #routeStatus { color: #bbb; font-size: 11.5px; min-height: 1.4em; margin-top: 4px; }
+    #routeWhy { font-size: 11.5px; color: #ccc; margin-top: 6px; }
+    #routeWhy:empty { display: none; }
+    #routeWhy h4 { margin: 6px 0 2px; font-size: 11.5px; color: #eee; font-weight: 600; }
+    #routeWhy ul { margin: 0; padding-left: 16px; }
+    #routeWhy li { margin: 1px 0; }
+    #routeWhy .blk { color: #ff8a80; } #routeWhy .slow { color: #f0c27a; } #routeWhy .ok { color: #9be39b; }
+    #routeWhy .src { color: #888; font-size: 10.5px; margin-top: 4px; }
+    /* showcase row: the scenario name gets the room; Run looks like the other main action (Calculate route) */
+    #showcaseSect .routeRow > select { flex: 3; }
+    #routeForSect .routeOpt select { flex: 1; min-width: 0; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 2px 4px; font-size: 12px; }
+    #showcaseSect #showcaseRun { flex: none; padding: 4px 12px; font-weight: 600; color: #151515; background: #e8b85a; border: 1px solid #e8b85a; border-radius: 4px; cursor: pointer; }
+    #winRoute .hint a { color: #9fd3ff; }
     #slopeRow { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: #ccc; font-size: 11.5px; }
     #slopeRow input { flex: 1; min-width: 70px; }
     #readout, #scale .dist { white-space: pre; }
@@ -321,6 +335,17 @@
     /* layer picker: category dropdown + search box + results list */
     #picker { margin: 2px 0 10px; }
     #pickRow { display: flex; gap: 4px; }
+    #pathLayers { border: 1px solid #333; border-radius: 6px; padding: 6px 7px; margin: 0 0 8px; background: #161616; }
+    #pathLayers .plHead { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; color: #eee; }
+    #pathLayers .plHead span { flex: 1; }
+    #pathLayers .plHead button { font-size: 11px; padding: 1px 6px; }
+    #pathLayers .plChips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    #pathLayers .plChip { font-size: 11px; padding: 2px 7px; border-radius: 10px; border: 1px solid #555; background: #222; color: #ccc; cursor: pointer; }
+    #pathLayers .plChip.on { border-color: #4fc3f7; background: #12303d; color: #fff; }
+    #pathLayers .plChip.busy { opacity: 0.6; cursor: wait; }
+    #pathLayers .plKey { font-size: 10.5px; color: #999; margin-top: 4px; line-height: 1.35; }
+    #pathLayers .plKey b { color: #ccc; font-weight: 600; }
+    #routeWhy .whyLayers { margin-top: 5px; font-size: 11px; }
     #layerCat, #layerSearch {
       background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px;
       font: 12.5px system-ui, sans-serif; padding: 4px 6px;
@@ -429,6 +454,46 @@
     .crewHead input:first-child { width: 100%; box-sizing: border-box; }
     .crewVerdict { margin: 6px 0 4px; padding: 5px 7px; border-radius: 4px; font-weight: 600; font-size: 12px; }
     .crewVerdict.ok { background: #1d3320; color: #9be59f; } .crewVerdict.bad { background: #3a1a18; color: #ff9d94; }
+    /* ---- EVA survival box (integrity chip, scenario, demo / route.json actions, survival card) */
+    #survivalBox { border: 1px solid #333; border-radius: 6px; background: #161616; padding: 6px 7px; margin: 2px 0 8px; }
+    #survivalBox .intChip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; padding: 4px 7px;
+      border-radius: 4px; border: 0; background: #1a2a36; color: #9fd3ff; font-size: 12px; }
+    #survivalBox .intChip.ok { background: #1d3320; color: #9be59f; } #survivalBox .intChip.ok b { color: #9be59f; }
+    #survivalBox .intChip.bad { background: #3a1a18; color: #ff9d94; } #survivalBox .intChip.bad b { color: #ff9d94; }
+    #survivalBox .intChip.wait b { color: #9fd3ff; }
+    #survivalBox .intChip b { font-weight: 600; }
+    #survivalBox .intChip > span { flex: 1; min-width: 0; }
+    #survivalBox .intChip button { margin-left: auto; font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid #555; background: #222; color: #ccc; cursor: pointer; }
+    #survivalBox .intChip button:hover { border-color: #4fc3f7; color: #fff; }
+    #survivalBox .intChip small { flex-basis: 100%; color: #888; font-size: 10.5px; line-height: 1.35; }
+    #survivalBox .svScen { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+    #survivalBox .svScen > span { width: 86px; flex: none; color: #ccc; font-size: 12px; }
+    #survivalBox .svScen select { flex: 1; min-width: 0; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 2px 4px; font-size: 12px; }
+    #survivalBox .svActs { display: flex; flex-wrap: wrap; gap: 4px; }
+    #survivalBox .svAct { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 10px;
+      border: 1px solid #555; background: #222; color: #ccc; cursor: pointer; text-decoration: none; line-height: 1.5; }
+    #survivalBox .svAct:hover:not(:disabled), #survivalBox .svAct:focus-visible { border-color: #4fc3f7; background: #12303d; color: #fff; outline: none; }
+    #survivalBox .svAct.main { border-color: #4fc3f7; background: #12303d; color: #fff; }
+    #survivalBox .svAct:disabled { opacity: 0.45; cursor: default; }
+    #survivalBox .svCard { margin-top: 8px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; padding: 7px 8px; color: #ccc; font-size: 12px; }
+    #survivalBox .svCard.go, #survivalBox .svCard.no { border-color: #333; background: #1b1b1b; }
+    #survivalBox .svVerdict { margin: -2px -3px 6px; padding: 5px 7px; border-radius: 4px; font-weight: 600; }
+    #survivalBox .svCard.go .svVerdict { background: #1d3320; color: #9be59f; }
+    #survivalBox .svCard.no .svVerdict { background: #3a1a18; color: #ff9d94; }
+    #survivalBox .svMeta { color: #bbb; }
+    #survivalBox .svCrew b { color: #eee; } #survivalBox .svCrew .h, #survivalBox .h { color: #888; }
+    #survivalBox .svBar { background: #2a2a2a; border-radius: 3px; }
+    #survivalBox .svBar i { background: #4caf50; } #survivalBox .svBar.low i { background: #f0c27a; } #survivalBox .svBar.out i { background: #ff5252; }
+    #survivalBox .svWarn { color: #f0c27a; } #survivalBox .svWarn li.refuse { color: #ff9d94; }
+    #survivalBox .svTl { color: #bbb; } #survivalBox .svFoot { color: #888; font-size: 10.5px; }
+    .crewAddWrap { position: relative; }
+    #crewAddMenu { position: absolute; z-index: 20; top: calc(100% + 3px); left: 0; min-width: 230px; background: #1b1b1b; border: 1px solid #444; border-radius: 6px; padding: 3px; box-shadow: 0 6px 18px #0009; }
+    #crewAddMenu button { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; background: none; border: 0; border-radius: 4px; padding: 5px 7px; color: #ddd; cursor: pointer; font-size: 12px; }
+    #crewAddMenu button:hover, #crewAddMenu button:focus { background: #2a3a48; outline: none; }
+    #crewAddMenu i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    #crewAddMenu em { margin-left: auto; color: #888; font-style: normal; font-size: 10.5px; }
+    #crewAddMenu .grp { color: #888; font-size: 10.5px; padding: 4px 7px 1px; text-transform: uppercase; letter-spacing: .04em; }
+    .crewVerdict.wait { background: #1a2a36; color: #9fd3ff; font-weight: 500; }
     .crewTab { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     .crewTab td { padding: 2px 0; border-bottom: 1px solid #262626; color: #ccc; }
     .crewTab td:last-child { text-align: right; color: #eee; font-variant-numeric: tabular-nums; }
@@ -461,10 +526,12 @@
       <button type="button" role="tab" data-win="winLayers" aria-controls="winLayers" title="Map layers"><span class="ico">▤</span>Layers</button>
       <button type="button" role="tab" data-win="winSpots" aria-controls="winSpots" title="Mission spots, tags and the rover road"><span class="ico">◎</span>Spots</button>
       <button type="button" role="tab" data-win="winRoute" aria-controls="winRoute" title="Terrain route planner"><span class="ico">⤳</span>Path</button>
-      <button type="button" role="tab" data-win="winCrew" aria-controls="winCrew" title="Astronauts and rovers: ETA, oxygen / battery, comms, alerts"><span class="ico">☻</span>Crew</button>
+      <button type="button" role="tab" data-win="winCrew" aria-controls="winCrew" title="Crew & EVA: survival budget of the route, demo excursion, astronauts and rovers (ETA, oxygen / battery, comms, alerts)"><span class="ico">☻</span>Crew &amp; EVA</button>
     </nav>
     <section class="win" id="winSettings" role="tabpanel">
       <div class="winBody">
+        <div class="sub" style="margin-top:0">Help</div>
+        <div class="setRow"><span>Tutorial</span><button id="btnTutorial" type="button">🎓 Launch tutorial</button></div>
         <div class="sub">View &amp; terrain</div>
         <div id="view">
           <button id="btnTop" class="on">Top-down</button>
@@ -525,11 +592,11 @@
         <div class="setRow">
           <span>Behind planet</span>
           <select id="pinBehind" title="Pins on the far side of Mars (or behind hills when tilted)">
-            <option value="faded" selected>Show, faded</option>
-            <option value="hidden">Hide</option>
+            <option value="hidden" selected>Hide</option>
+            <option value="faded">Show, faded</option>
           </select>
         </div>
-        <div class="setNote">Far out, pins hide so the planet stays clear. Small named features (craters…) appear only closer, in proportion to their size. A selected spot always stays visible.</div>
+        <div class="setNote">Pins on the far side of Mars are hidden — you only see spots on the surface in front of you. Small named features (craters…) appear only closer, in proportion to their size.</div>
 
         <div class="sub">Crew &amp; EVA</div>
         <div class="setRow">
@@ -558,6 +625,20 @@
           </select>
         </div>
         <div class="setNote">Max stay at a destination keeps this reserve for the trip back. Alerts fire below it, near the point of no return, and when the radio loses line of sight to the base.</div>
+
+        <div class="sub">Route hazards (thresholds)</div>
+        <div class="setRow" title="Cells rougher than this are never entered. Default 400 m: under 1% of Gale (MOLA z6). ASSUMED, calibrated"><span>Rough: block</span><input class="hzNum" data-hz="roughBlockM" type="number" min="10" max="2000" step="10" /><span class="hzUnit">m roughness</span></div>
+        <div class="setRow" title="Default 40 m = the Gale floor along Curiosity's demo excursion"><span>Rough: free</span><input class="hzNum" data-hz="roughFreeM" type="number" min="0" max="1000" step="5" /><span class="hzUnit">m (no extra cost below)</span></div>
+        <div class="setRow" title="Default 200 m (about Gale's 90th percentile)"><span>Rough: ×2 at</span><input class="hzNum" data-hz="roughDoubleM" type="number" min="1" max="2000" step="10" /><span class="hzUnit">m (cost doubles here)</span></div>
+        <div class="setRow" title="Cells in the bottom part of the TES thermal-inertia colour ramp are blocked (dust-dominated, qualitative). Default 10%. Every landed site is above 35%"><span>Soft dust: block</span><input class="hzNum" data-hz="softBlockIdx" type="number" min="0" max="100" step="1" /><span class="hzUnit">% of the thermal-inertia ramp</span></div>
+        <div class="setRow" title="Below this, cells cost more. Default 25% (≈200 TIU on a rough 3-point fit)"><span>Soft dust: slow</span><input class="hzNum" data-hz="softSlowIdx" type="number" min="0" max="100" step="1" /><span class="hzUnit">% (costlier below)</span></div>
+        <div class="setRow" title="ASSUMED"><span>Soft dust: max</span><input class="hzNum" data-hz="softSlowMax" type="number" min="1" max="10" step="0.1" /><span class="hzUnit">× cost near the block line</span></div>
+        <div class="setRow" title="ASSUMED: no calibration of this map was found"><span>Dust: slow above</span><input class="hzNum" data-hz="dustSlowAbove" type="number" min="0" max="99" step="1" /><span class="hzUnit">% of the TES dust scale</span></div>
+        <div class="setRow" title="ASSUMED"><span>Dust: max</span><input class="hzNum" data-hz="dustSlowMax" type="number" min="1" max="10" step="0.1" /><span class="hzUnit">× cost on the dustiest ground</span></div>
+        <div class="setRow" title="Default −129 °C (144 K): coldest worst-case Mars surface temperature at EVA-realistic sites, NASA ICES-2026-126 Table 3"><span>Suit: min temp</span><input class="hzNum" data-hz="tempMinC" type="number" min="-200" max="50" step="1" /><span class="hzUnit">°C ground</span></div>
+        <div class="setRow" title="Default +39 °C (312 K): hottest worst-case Mars surface temperature at those sites, NASA ICES-2026-126 Table 3"><span>Suit: max temp</span><input class="hzNum" data-hz="tempMaxC" type="number" min="-100" max="150" step="1" /><span class="hzUnit">°C ground</span></div>
+        <div class="setRow"><span></span><button id="hzDefaults" type="button" title="Put every route-hazard threshold back to its sourced default">Defaults</button></div>
+        <div class="setNote">Used by the Path tab hazard options. Changing a value clears the current route. TIU = J m⁻² K⁻¹ s⁻½, rough (3-point fit). Sources and reasoning: docs/assumptions.md.</div>
 
         <div class="sub">Performance</div>
         <div class="setRow">
@@ -593,6 +674,13 @@
 
     <section class="win" id="winLayers" role="tabpanel">
       <div class="winBody">
+        <div id="pathLayers">
+          <div class="plHead"><span>Pathfinding view</span>
+            <button id="plAll" type="button" title="Show every layer the route planner uses">All on</button>
+            <button id="plNone" type="button" title="Hide the pathfinding layers again">All off</button></div>
+          <div class="plChips" id="plChips"></div>
+          <div class="plKey" id="plKey"></div>
+        </div>
         <div id="remsBox"><div class="layer"><div class="note">Atmosphere · Gale: loading REMS…</div></div></div>
         <div id="picker">
           <div id="pickRow">
@@ -687,9 +775,16 @@
             <label class="routeOpt"><input id="routeLoop" type="checkbox" /> Return to start (A → … → A)</label>
             <label class="routeOpt"><input id="routeSmooth" type="checkbox" checked /> Smooth turns (Bezier)</label>
             <label class="routeOpt" title="Minimise suited walking time (survival.js speed model) instead of distance"><input id="routeFastest" type="checkbox" /> Fastest walk (time, not distance)</label>
+            <label class="routeOpt" title="Roughness computed from the MOLA heights: bumpy cells cost more, very rough cells are blocked"><input id="routeRough" type="checkbox" /> Avoid rough terrain (MOLA)</label>
+            <label class="routeOpt" title="Low thermal inertia = loose dust mantle. TES map, ~21 km/px, relative index decoded from map colours"><input id="routeSoftDust" type="checkbox" /> Avoid soft dust (TES thermal inertia)</label>
+            <label class="routeOpt" title="Dusty surfaces cost more (never blocked). TES map, ~21 km/px, relative index"><input id="routeDustCover" type="checkbox" /> Prefer less dusty ground (TES dust)</label>
             <label id="slopeRow">Max slope <input id="maxSlope" type="range" min="5" max="45" step="1" value="25" /><span id="maxSlopeValue">25°</span></label>
             <div id="slopeMeaning" class="hint">At 25°, allow up to 47 m elevation change per 100 m.</div>
             <div class="hint">Red cells exceed the slope limit and cannot be used by the route.</div>
+          </div>
+          <div class="routeSect" id="routeForSect">
+            <label class="routeOpt" title="Terrain only: the route says what the ground and hazards allow, with no oxygen, water or battery. Pick a crew member or rover to also get their resources, ETA and survival budget.">For
+              <select id="routeFor" aria-label="Plan the route for"><option value="">Terrain only (no crew resources)</option></select></label>
           </div>
           <div class="routeActions">
             <button id="routeCalcBtn" type="button" class="primary">Calculate route</button>
@@ -698,22 +793,11 @@
           </div>
           <div id="walkHint" class="hint">Walk mode uses only the preferred Jezero panorama markers that match this A→B route.</div>
           <div id="routeStatus" aria-live="polite">Add at least two stops, then press Calculate route.</div>
+          <div id="routeWhy" aria-live="polite"></div>
+          <div class="hint">Survival budget, demo excursion, route.json and VR replay: <a href="#" id="routeToCrew">Crew &amp; EVA tab</a>.</div>
           <div id="routeProgress" hidden>
             <div class="bar"><i></i></div>
             <div class="lines"></div>
-          </div>
-          <div id="survivalBox">
-            <div id="integrityChip" class="intChip wait">Data integrity: checking…</div>
-            <div class="svRow">
-              <label title="Same route, different suit condition: shows how the plan refuses an unsafe excursion">Scenario <select id="svScenario"></select></label>
-              <button id="routeExportBtn" type="button" disabled title="Download the computed route, survival budget and terrain excerpt as route.json">⬇ route.json</button>
-            </div>
-            <div class="svRow">
-              <button id="routeDemoBtn" type="button" title="Load the committed demo excursion (public/data/route.json); works without the terrain server">Load demo excursion (boxwork)</button>
-              <label class="hint" style="cursor:pointer"><input id="routeImportFile" type="file" accept=".json,application/json" hidden />⬆ Open route.json…</label>
-              <a href="./vr.html" target="_blank" rel="noopener" title="Three.js WebXR replay of the signed demo excursion (Meta Quest browser or desktop)">🥽 VR replay</a>
-            </div>
-            <div id="survivalCard"></div>
           </div>
         </div>
       </div>
@@ -721,22 +805,41 @@
 
     <section class="win" id="winCrew" role="tabpanel">
       <div class="winBody">
-        <div class="sub" style="margin-top:0">Crew &amp; rovers</div>
-        <div class="routeRow">
-          <button id="crewAddAstro" type="button">＋ Astronaut</button>
-          <select id="crewRoverKind" aria-label="Rover type">
-            <option value="pressurized">Pressurized crew rover</option>
-            <option value="perseverance">Perseverance</option>
-            <option value="curiosity">Curiosity</option>
-          </select>
-          <button id="crewAddRover" type="button">＋ Rover</button>
+        <div class="routeSect" id="showcaseSect">
+          <div class="routeHead"><span>Scenarios</span><em>real terrain, one click</em></div>
+          <div class="routeRow">
+            <select id="showcaseSel" aria-label="Showcase scenario"></select>
+            <button id="showcaseRun" type="button" class="primary">▶ Run</button>
+          </div>
+          <div id="showcaseStory" class="hint"></div>
         </div>
-        <div id="crewEmpty" class="hint">Add an astronaut or a rover. Each one appears on the map at the view centre and can be given the route from the Path tab.</div>
+        <div class="sub">EVA survival budget · Path route or demo</div>
+        <div class="hint" style="margin:0 0 4px">Two-person suited team on the route from the Path tab (or the signed demo excursion): oxygen, cooling water, battery, reserve, walk-back limit.</div>
+        <div id="survivalBox">
+          <div id="integrityChip" class="intChip wait">Data integrity: checking…</div>
+          <div class="svScen" title="Same route, different suit condition: shows how the plan refuses an unsafe excursion">
+            <span>Suit condition</span><select id="svScenario" aria-label="Suit condition"></select>
+          </div>
+          <div class="svActs">
+            <label class="svAct" title="Open a route.json saved earlier"><input id="routeImportFile" type="file" accept=".json,application/json" hidden />⬆ Open route.json</label>
+            <button id="routeExportBtn" type="button" class="svAct" disabled title="Download the computed route, survival budget and terrain excerpt as route.json">⬇ Save route.json</button>
+            <a class="svAct" href="./vr.html" target="_blank" rel="noopener" title="Three.js WebXR replay of the signed demo excursion (Meta Quest browser or desktop)">🥽 VR replay</a>
+          </div>
+          <div id="survivalCard"></div>
+        </div>
+        <div class="sub">Crew &amp; rovers</div>
+        <div class="routeRow">
+          <div class="crewAddWrap">
+            <button id="crewAdd" type="button" aria-haspopup="menu" aria-expanded="false" title="Add a crew member or a rover at the view centre">＋ Add ▾</button>
+            <div id="crewAddMenu" role="menu" hidden></div>
+          </div>
+        </div>
+        <div id="crewEmpty" class="hint">Add an astronaut or a rover. Each one appears on the map at the view centre. Click its marker, then <b>Walk from here</b> and click any point on the map: you get how long they can last there, or just whether the way is feasible.</div>
         <div id="crewList"></div>
         <div id="crewDetail" hidden></div>
         <div class="routeHead" style="margin-top:10px"><span>Alerts</span><button id="crewDesktop" type="button" class="mini" title="Also show alerts as desktop notifications">Enable desktop alerts</button></div>
         <div id="crewLog"></div>
-        <div class="hint">Model, not live telemetry: speed falls with slope (Tobler for walking), O₂ use rises uphill, rest uses less. Reserve, radio range and simulation speed are in Settings.</div>
+        <div class="hint">Model, not live telemetry. Astronauts use the same speed and metabolic model as the survival budget above (survival.js). Reserve, radio range and simulation speed are in Settings.</div>
       </div>
     </section>
   </div>
@@ -842,7 +945,8 @@
         "Cesium did not load. In the web folder run:  npm install cesium  and reload.";
       return;
     }
-    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask, sampleTerrainHeights } = await import("./pathfinding.js");
+    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask, sampleTerrainHeights, roughnessHazard, explainLeg } = await import("./pathfinding.js");
+    const Hazards = await import("./hazards.js");
     const RouteIO = await import("./route-io.js");
     const Survival = await import("./survival.js");
     const { renderSurvivalCard } = await import("./survival-card.js");
@@ -982,6 +1086,11 @@
     globe.enableLighting = false;
     globe.baseColor = Cesium.Color.fromCssColorString("#5b3a29");
     viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;
+    // Cesium only tests the camera against the terrain below this height (scaled by the relief
+    // exaggeration). Its default for a non-Earth globe is 0.25% of the radius = ~8.5 km on Mars,
+    // far below Olympus Mons (21 km) or Tharsis (10+ km), so over high ground the camera could
+    // fly straight into the relief. 30 km covers the whole planet.
+    viewer.scene.screenSpaceCameraController.minimumCollisionTerrainHeight = 30_000;
     // Keep more decoded tiles in memory (default 100) so panning back and forth doesn't refetch.
     globe.tileCacheSize = 1000;
 
@@ -1254,6 +1363,7 @@
     }
 
     function renderLayers() {
+      queueMicrotask(() => { try { renderPathLayers(); } catch { /* not set up yet */ } });
       layersEl.replaceChildren();
       for (let k = active.length - 1; k >= 0; k--) {
         const entry = active[k], { def, layer } = entry;
@@ -1306,6 +1416,88 @@
     const startDefs = Array.isArray(stored) && stored.every((d) => d && d.dataset && d.ext)
       ? stored : LAYERS;
     for (const d of startDefs) addLayer({ ...d }, { save: false });
+
+    // ---------------------------------------------------------------- pathfinding view
+    // One click shows the data the route planner reasons with, so a blocked or bent route can
+    // be read off the map. Each entry maps to a planner constraint (route "Why" reason ids).
+    const PATH_LAYERS = [
+      { key: "slope", reasons: ["slope", "climb", "nodata"], chip: "Elevation / slope",
+        dataset: "Mars_MGS_MOLA_ClrShade_merge_global_463m", builtIn: true, alpha: 0.7,
+        legend: "<b>Elevation / slope</b> (MOLA): colours = height, shading = steepness. The planner always blocks cells steeper than the Max slope in the Path tab; after a route is calculated those cells are painted red." },
+      { key: "roughness", reasons: ["roughness"], chip: "Roughness",
+        dataset: "mola_roughness", title: "MGS MOLA, Global Surface Roughness", alpha: 0.65,
+        legend: "<b>Roughness</b> (MOLA, Trek colour scale): how bumpy the ground is at km scale. The planner computes its own roughness from MOLA heights for “Avoid rough terrain”; this map shows the same idea." },
+      { key: "softDust", reasons: ["softDust"], chip: "Soft dust (thermal inertia)",
+        dataset: "TES_Thermal_Inertia", title: "MGS TES, Global Thermal Inertia", alpha: 0.6,
+        legend: "<b>Thermal inertia</b> (TES, ~21 km/px, qualitative): <b>purple = bottom of the ramp = loose dust</b>, blocked by “Avoid soft dust”; blue/green/yellow = firmer ground and rock. Landing sites are all blue–green (35–70% of the ramp)." },
+      { key: "dustCover", reasons: ["dustCover"], chip: "Dust cover",
+        dataset: "TES_Dust", title: "MGS TES, Global Dust", alpha: 0.6,
+        legend: "<b>Dust cover</b> (TES, ~21 km/px): purple = little dust → red = dusty. Only makes routes slower (“Prefer less dusty ground”), never blocks." },
+    ];
+    const plChips = document.getElementById("plChips"), plKey = document.getElementById("plKey");
+    const entryOf = (dataset) => active.find((e) => e.def.dataset === dataset);
+    const plIsOn = (L) => !!entryOf(L.dataset)?.layer.show;
+    async function setPathLayer(L, on) {
+      let entry = entryOf(L.dataset);
+      if (!on) { if (entry) { entry.layer.show = false; saveLayers(); renderLayers(); } return; }
+      if (!entry) {
+        let def;
+        if (L.builtIn) def = { ...LAYERS.find((d) => d.dataset === L.dataset) };
+        else {
+          def = await layerDefFromCatalog({ id: L.dataset, title: L.title, bbox: [-180, -90, 180, 90] });
+          def.kind = L.key === "roughness" ? "topographic" : "thermal";
+          def.mission = "Mars Global Surveyor";
+          // Trek's capabilities list 4 levels, but these tiles only exist to level 1 (checked
+          // 2026-11-15); deeper requests 404 and would leave holes when zoomed in.
+          def.maxLevel = Math.min(def.maxLevel, 1);
+          def.res = "~21 km/px";
+        }
+        entry = addLayer({ ...def, show: true, alpha: L.alpha });
+      }
+      entry.layer.show = true;
+      viewer.imageryLayers.raiseToTop(entry.layer);           // draw it over the base maps
+      try { for (const l of unwalkableLayers) viewer.imageryLayers.raiseToTop(l); } catch { /* no route mask yet */ } // red slope mask stays on top
+      active.splice(active.indexOf(entry), 1); active.push(entry);
+      saveLayers(); renderLayers();
+    }
+    function renderPathLayers() {
+      plChips.replaceChildren(...PATH_LAYERS.map((L) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = `plChip${plIsOn(L) ? " on" : ""}`;
+        b.textContent = L.chip;
+        b.setAttribute("aria-pressed", String(plIsOn(L)));
+        b.addEventListener("click", async () => {
+          b.classList.add("busy");
+          try { await setPathLayer(L, !plIsOn(L)); }
+          catch (err) { statusEl.textContent = `Could not add ${L.chip}: ${err.message}`; }
+          renderPathLayers();
+        });
+        return b;
+      }));
+      const onKeys = PATH_LAYERS.filter(plIsOn);
+      plKey.innerHTML = onKeys.length ? onKeys.map((L) => L.legend).join("<br>")
+        : "Tap a layer to see what the route planner sees. In the Path tab, “Why this route” can switch on exactly the layers behind a detour.";
+    }
+    // Used by the route panel: show the layers behind these "Why" reasons (and hide the rest).
+    async function showPathLayersFor(reasonIds) {
+      const want = PATH_LAYERS.filter((L) => L.reasons.some((r) => reasonIds.includes(r)));
+      for (const L of PATH_LAYERS) {
+        try { await setPathLayer(L, want.includes(L)); }
+        catch (err) { statusEl.textContent = `Could not add ${L.chip}: ${err.message}`; }
+      }
+      renderPathLayers();
+      return want;
+    }
+    document.getElementById("plAll").addEventListener("click", async () => {
+      for (const L of PATH_LAYERS) { try { await setPathLayer(L, true); } catch (err) { statusEl.textContent = `Could not add ${L.chip}: ${err.message}`; } }
+      renderPathLayers();
+    });
+    document.getElementById("plNone").addEventListener("click", () => {
+      for (const L of PATH_LAYERS) setPathLayer(L, false);
+      renderPathLayers();
+    });
+    renderPathLayers();
 
     // ---------------------------------------------------------------- Trek layer catalog
     // serve.mjs /catalog lists every Trek Mars product (minus vector-only ones). Picking one
@@ -1493,6 +1685,73 @@
     let tiltDeg = 0;
     const currentTilt = () => 90 + Cesium.Math.toDegrees(viewer.camera.pitch);
     const pitchFor = (deg) => Cesium.Math.toRadians(-90 + deg);
+    // Lines drawn "through" the terrain (depthFailMaterial) help from above: a route behind a
+    // ridge stays visible. Tilted low, the part beyond the horizon would be drawn through the
+    // planet and look like a line painted on the sky, so it fades out above 35° of tilt.
+    const behindTerrainColor = (color, alpha = 1) =>
+      new Cesium.CallbackProperty(() => color.withAlpha(currentTilt() < 35 ? alpha : 0), false);
+
+    // Paths always on top of the surface. A line follows the terrain heights it was drawn with,
+    // but the rendered relief sharpens as you zoom in, so hills can rise over it. Each line kept
+    // here gets a twin over the stretches on the visible side of Mars that is drawn only where
+    // terrain hides the line (depth-fail), so no hill ever covers or clips it. Stretches behind
+    // the planet's horizon get no twin, so nothing is painted on the sky. Twins are rebuilt only
+    // when the visible stretches change (camera moves, line moves).
+    const onTopLines = new Map(); // base entity -> { color, width, sig, overlays }
+    // Horizon test against a sphere sunk below the deepest terrain (Hellas ~ -8 km, exaggerated):
+    // in deep places like Gale the camera itself sits below the Mars datum, where a test against
+    // the datum ellipsoid would call everything hidden.
+    let horizonOccluder = new Cesium.EllipsoidalOccluder(MARS, Cesium.Cartesian3.ZERO);
+    let horizonR = 0;
+    let onTopTimer = 0;
+    function keepOnTop(entity, color, width) {
+      onTopLines.set(entity, { color, width, sig: "", overlays: [], pts: null });
+      scheduleOnTop();
+    }
+    function dropOnTop(entity) {
+      const r = onTopLines.get(entity);
+      if (!r) return;
+      for (const o of r.overlays) viewer.entities.remove(o);
+      onTopLines.delete(entity);
+    }
+    function scheduleOnTop() { if (!onTopTimer) onTopTimer = setTimeout(() => { onTopTimer = 0; refreshOnTop(); }, 120); }
+    function refreshOnTop() {
+      const ex = Math.max(1, viewer.scene.verticalExaggeration);
+      const camR = Cesium.Cartesian3.magnitude(viewer.camera.positionWC);
+      const r = Math.min(MARS.minimumRadius, camR) - 20_000 * ex;
+      if (Math.abs(r - horizonR) > 1000) { horizonR = r; horizonOccluder = new Cesium.EllipsoidalOccluder(new Cesium.Ellipsoid(r, r, r), Cesium.Cartesian3.ZERO); }
+      horizonOccluder.cameraPosition = viewer.camera.positionWC;
+      const now = viewer.clock.currentTime;
+      for (const [entity, r] of onTopLines) {
+        if (!viewer.entities.contains(entity)) { dropOnTop(entity); continue; }
+        const pts = entity.show === false ? [] : (entity.polyline?.positions?.getValue(now) ?? []);
+        const runs = [];
+        let from = -1;
+        for (let i = 0; i <= pts.length; i++) {
+          const vis = i < pts.length && horizonOccluder.isPointVisible(pts[i]);
+          if (vis && from < 0) from = i;
+          if (!vis && from >= 0) { if (i - from >= 2) runs.push([from, i]); from = -1; }
+        }
+        const sig = runs.map((x) => x.join("-")).join(",");
+        if (sig === r.sig && pts === r.pts) continue;
+        r.sig = sig; r.pts = pts;
+        for (const o of r.overlays) viewer.entities.remove(o);
+        r.overlays = runs.map(([a, b]) => viewer.entities.add({
+          polyline: {
+            positions: pts.slice(a, b), width: Math.max(2, r.width - 2), arcType: Cesium.ArcType.NONE,
+            // solid on both passes (a fully transparent material puts the line in the translucent
+            // pass, where Cesium skips its depth-fail part): visible over the line, and through hills
+            material: new Cesium.ColorMaterialProperty(r.color),
+            depthFailMaterial: new Cesium.ColorMaterialProperty(r.color),
+          },
+        }));
+      }
+    }
+    viewer.camera.changed.addEventListener(scheduleOnTop);
+    viewer.camera.moveEnd.addEventListener(scheduleOnTop);
+    viewer.entities.collectionChanged.addEventListener(scheduleOnTop); // a line removed or added (settles: no change = no rebuild)
+    // read-only debug hook for tests: how many lines are kept on top, and their visible stretches
+    window.happyfeet = Object.assign(window.happyfeet || {}, { onTopStats: () => [...onTopLines.values()].map((r) => ({ stretches: r.overlays.length, sig: r.sig, points: r.pts?.length ?? 0 })) });
 
     // Look at (lon, lat) on the surface from `range` metres away at the current tilt.
     function fly(lon, lat, range, seconds) {
@@ -1541,14 +1800,16 @@
     }
     // Re-aim the camera around the point in the middle of the screen, keeping the distance.
     function setTilt(deg, seconds) {
-      tiltDeg = deg;
-      showTilt(deg);
-      const target = viewCentre();
+      const target = viewCentre(); // where the screen centre hits the planet (terrain if loaded)
       const range = Cesium.Cartesian3.distance(viewer.camera.positionWC, target);
-      viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 0), {
-        offset: new Cesium.HeadingPitchRange(viewer.camera.heading, pitchFor(deg), range),
-        duration: seconds ?? 1,
-      });
+      // find the end pose first (tiltNow lowers the tilt if the relief is in the way), then fly to it
+      const start = { position: viewer.camera.positionWC.clone(), heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: viewer.camera.roll };
+      const reached = Math.round(typeof tiltNow === "function" ? tiltNow(deg, target, range) : deg);
+      const end = { destination: viewer.camera.positionWC.clone(), orientation: { heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: 0 } };
+      viewer.camera.setView({ destination: start.position, orientation: { heading: start.heading, pitch: start.pitch, roll: start.roll } });
+      tiltDeg = reached;
+      showTilt(reached);
+      viewer.camera.flyTo({ ...end, duration: seconds ?? 1 });
     }
     btnTop.addEventListener("click", () => setTilt(0));
     btnTilt.addEventListener("click", () => setTilt(60));
@@ -1826,9 +2087,10 @@
       for (const [id, e] of spotEntities) e.billboard.distanceDisplayCondition = pinCondition(spotById.get(id));
     }
     // Pins behind the planet: "faded" draws them through Mars at 35% opacity (and pins behind
-    // hills when tilted stay visible too); "hidden" lets the planet and terrain cover them.
-    // Settings > Map spots > Behind the planet.
-    let pinsBehind = "faded";
+    // hills when tilted stay visible too); "hidden" removes them outright, so a pin is only
+    // seen when it sits on the surface in front of the camera.
+    // Settings > Map spots > Behind planet.
+    let pinsBehind = "hidden";
     const pinDepthOff = () => (pinsBehind === "faded" ? Number.POSITIVE_INFINITY : 50_000);
     const pinOccluder = new Cesium.EllipsoidalOccluder(MARS, Cesium.Cartesian3.ZERO);
     const PIN_SOLID = Cesium.Color.WHITE, PIN_FADED = new Cesium.Color(1, 1, 1, 0.35);
@@ -1837,8 +2099,23 @@
       pinOccluder.cameraPosition = viewer.camera.positionWC;
       for (const [id, e] of spotEntities) {
         if (!e.show) continue;
-        const behind = pinsBehind === "faded" && !pinOccluder.isPointVisible(pinWorld.get(id));
-        if (e._behind !== behind) { e._behind = behind; e.billboard.color = behind ? PIN_FADED : PIN_SOLID; }
+        // Is the planet in the way? Then the pin is on the far side and must not be drawn.
+        const behind = !pinOccluder.isPointVisible(pinWorld.get(id));
+        if (pinsBehind === "hidden") {
+          if (e._behind !== behind) {
+            e._behind = behind;
+            e.billboard.show = !behind;
+            if (behind) e.label.show = false;
+            else if (selectedSpot?.id === id) e.label.show = true;
+          }
+        } else {
+          const faded = pinsBehind === "faded" && behind;
+          if (e._behind !== faded) {
+            e._behind = faded;
+            e.billboard.color = faded ? PIN_FADED : PIN_SOLID;
+            e.billboard.show = true;
+          }
+        }
       }
     }
     function setPinsBehind(mode) {
@@ -2324,10 +2601,9 @@
           width: 4,
           material: amber,
           arcType: Cesium.ArcType.NONE, // points are ~20 m apart: straight segments are exact enough
-          // where a hill hides the line (tilted views), show it as a glow instead of losing it
-          depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.2, color: amber }),
         },
       });
+      keepOnTop(traverseEntity, amber.withAlpha(0.9), 4); // never hidden by a hill
     }
     let traverseCartos = null, traverseHeights = null;
     function traversePositions() {
@@ -2337,14 +2613,14 @@
         Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, (relief ? traverseHeights[i] * ex : 0) + 15, MARS));
     }
     function placeTraverse() {
-      if (traverseEntity) traverseEntity.polyline.positions = traversePositions();
+      if (traverseEntity) { traverseEntity.polyline.positions = traversePositions(); scheduleOnTop(); }
     }
     reliefHooks.push(placeTraverse); // also fires when the 3D relief finishes loading
     async function setTraverseVisible(show) {
       roadToggle.setAttribute("aria-pressed", String(show));
       roadToggle.classList.toggle("on", show);
       if (!show) {
-        if (traverseEntity) traverseEntity.show = false;
+        if (traverseEntity) traverseEntity.show = false; scheduleOnTop();
         roadToggle.textContent = "Rover road off";
         return;
       }
@@ -2354,7 +2630,7 @@
           traverseLoading = traverseLoading ?? loadTraverse();
           await traverseLoading;
         }
-        traverseEntity.show = true;
+        traverseEntity.show = true; scheduleOnTop();
         roadToggle.textContent = "Rover road on";
       } catch (err) {
         console.error("Rover road failed to load", err);
@@ -2866,19 +3142,59 @@
     const canvasEl = viewer.scene.canvas;
     let chord = null; // { y, tilt } while both buttons are held
 
-    // Rotate the camera around the point in the middle of the screen to `deg`, instantly.
-    function tiltNow(deg) {
-      const target = viewCentre();
-      const range = Cesium.Cartesian3.distance(viewer.camera.positionWC, target);
-      viewer.camera.lookAt(target, new Cesium.HeadingPitchRange(viewer.camera.heading, pitchFor(deg), range));
-      viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); // release so normal controls work again
+    // Ground radius (m from the planet centre) of the rendered surface under a world position,
+    // relief and exaggeration included; undefined while no tile is loaded there.
+    const scratchRay = new Cesium.Ray();
+    function groundRadiusUnder(pos) {
+      Cesium.Cartesian3.clone(pos, scratchRay.origin);
+      Cesium.Cartesian3.normalize(Cesium.Cartesian3.negate(pos, scratchRay.direction), scratchRay.direction);
+      const hit = globe.pick(scratchRay, viewer.scene);
+      return hit ? Cesium.Cartesian3.magnitude(hit) : undefined;
+    }
+    const clearanceFor = (range) => Math.max(60, range * 0.03);
+    const aboveGround = (pos, range) => {
+      const g = groundRadiusUnder(pos);
+      return g === undefined || Cesium.Cartesian3.magnitude(pos) >= g + clearanceFor(range);
+    };
+    // Rotate the camera to `deg` around `pivot` (default: where the screen centre hits the
+    // ground), keeping its distance. If that tilt would put the camera inside the relief, use
+    // the steepest tilt that stays above it instead (binary search), so the view never clips.
+    function tiltNow(deg, pivot = viewCentre(), range = Cesium.Cartesian3.distance(viewer.camera.positionWC, pivot)) {
+      const cam = viewer.camera, heading = cam.heading;
+      const place = (d) => {
+        cam.lookAt(pivot, new Cesium.HeadingPitchRange(heading, pitchFor(d), range));
+        cam.lookAtTransform(Cesium.Matrix4.IDENTITY); // release so normal controls work again
+        return aboveGround(cam.positionWC, range);
+      };
+      if (place(deg)) return deg;
+      let lo = 0, hi = deg;
+      if (!place(lo)) return lo; // even straight down is too low: leave it to the ground guard
+      for (let k = 0; k < 8; k++) { const mid = (lo + hi) / 2; if (place(mid)) lo = mid; else hi = mid; }
+      place(lo);
+      return lo;
+    }
+    // Any other way the camera ends up below the rendered ground (zoom, inertia, flights,
+    // relief switched on): lift it straight up, keeping where it looks. Cheap when high up.
+    const scratchCarto = new Cesium.Cartographic();
+    function keepAboveGround() {
+      const cam = viewer.camera;
+      if (!Cesium.Matrix4.equals(cam.transform, Cesium.Matrix4.IDENTITY)) return; // orbit frame: position is not world
+      const carto = MARS.cartesianToCartographic(cam.positionWC, scratchCarto);
+      if (!carto || carto.height > 30_000 * Math.max(1, viewer.scene.verticalExaggeration)) return;
+      const g = groundRadiusUnder(cam.positionWC);
+      if (g === undefined) return;
+      const need = g + 40 - Cesium.Cartesian3.magnitude(cam.positionWC);
+      if (need <= 0) return;
+      const up = MARS.geodeticSurfaceNormal(cam.positionWC, new Cesium.Cartesian3());
+      cam.position = Cesium.Cartesian3.add(cam.positionWC, Cesium.Cartesian3.multiplyByScalar(up, need, up), new Cesium.Cartesian3());
     }
 
     // Pressing a second button while the first is held fires pointermove (not pointerdown),
     // so the chord can start from either event.
     function maybeStartChord(e) {
       if (chord || e.pointerType !== "mouse" || (e.buttons & 3) !== 3) return false;
-      chord = { y: e.clientY, tilt: currentTilt() };
+      const pivot = viewCentre(); // rotate around where the screen centre hits the planet
+      chord = { y: e.clientY, tilt: currentTilt(), pivot, range: Cesium.Cartesian3.distance(viewer.camera.positionWC, pivot) };
       ssc.enableInputs = false;
       try { canvasEl.setPointerCapture(e.pointerId); } catch {}
       return true;
@@ -2888,8 +3204,8 @@
       if (maybeStartChord(e) || !chord) return;
       if ((e.buttons & 3) !== 3) return endChord();
       // drag up = tilt toward the horizon, 0.3° per pixel
-      const deg = Math.min(MAX_TILT, Math.max(0, chord.tilt + (chord.y - e.clientY) * 0.3));
-      tiltNow(deg);
+      const want = Math.min(MAX_TILT, Math.max(0, chord.tilt + (chord.y - e.clientY) * 0.3));
+      const deg = tiltNow(want, chord.pivot, chord.range);
       tiltDeg = Math.round(deg);
       showTilt(tiltDeg);
     });
@@ -2904,7 +3220,8 @@
 
     // Hard limit: whatever tilted the camera (touch, Ctrl+drag, middle-drag), pull it back to MAX_TILT.
     viewer.scene.preRender.addEventListener(() => {
-      if (currentTilt() > MAX_TILT + 0.5) tiltNow(MAX_TILT);
+      if (!chord && currentTilt() > MAX_TILT + 0.5) tiltNow(MAX_TILT);
+      keepAboveGround();
     });
     window.addEventListener("resize", updateMetrics);
 
@@ -2982,10 +3299,38 @@
         // local solar time = 12 h + (lon - subsolar lon) / 15 deg per hour
         if (c) subLon = deg(c.longitude) - (fixedHour - 12) * 15;
       }
+      starOffsetDeg = subLon - clk.subLon; // keep the stars turned like the sun
       const d = rad(clk.decl), l = rad(subLon);
       Cesium.Cartesian3.fromElements(Math.cos(d) * Math.cos(l), Math.cos(d) * Math.sin(l), Math.sin(d), sunDir);
       Cesium.Cartesian3.normalize(sunDir, sunDir);
     }
+
+    // ---- the stars turn with Mars, not with the Earth
+    // Cesium orients its star box with the EARTH's sidereal rotation (computeTemeToPseudoFixedMatrix
+    // from Greenwich sidereal time) and its own clock, which this page never advanced, so the stars
+    // showed the Earth's sky at page load and stood still. Replace that matrix with Mars's
+    // ICRF -> body-fixed rotation, IAU WGCCRE model (Archinal et al. 2011): pole
+    // RA 317.68143 - 0.1061 T, Dec 52.88650 - 0.0609 T, prime meridian W = 176.630 + 350.89198226 d
+    // (one turn per 24 h 37 min 22.7 s sidereal day), and run the clock in real time. With
+    // Settings > Time of day the stars turn by the same angle as the sun, so they stay consistent.
+    let starOffsetDeg = 0; // body-fixed longitude shift of the time-of-day override (east +)
+    function marsIcrfToFixed(julianDate, result) {
+      const jd = Cesium.JulianDate.toDate(julianDate).getTime() / 86400000 + 2440587.5 + TT_MINUS_UTC / 86400;
+      const d = jd - 2451545.0, T = d / 36525;
+      const a0 = 317.68143 - 0.1061 * T, d0 = 52.8865 - 0.0609 * T;
+      const W = mod(176.63 + 350.89198226 * d - starOffsetDeg, 360);
+      // frame rotations R3(W) R1(90 - d0) R3(90 + a0); Cesium's fromRotation* are active, so negate
+      const m = Cesium.Matrix3.fromRotationZ(rad(-W));
+      Cesium.Matrix3.multiply(m, Cesium.Matrix3.fromRotationX(rad(-(90 - d0))), m);
+      Cesium.Matrix3.multiply(m, Cesium.Matrix3.fromRotationZ(rad(-(90 + a0))), m);
+      return Cesium.Matrix3.clone(m, result ?? new Cesium.Matrix3());
+    }
+    try {
+      Cesium.CelestialFrameTransforms.computeTemeToPseudoFixedMatrix = marsIcrfToFixed;
+      viewer.clock.clockStep = Cesium.ClockStep.SYSTEM_CLOCK; // real time, so the sky turns
+      viewer.clock.currentTime = Cesium.JulianDate.now();
+      viewer.clock.shouldAnimate = true;
+    } catch (error) { console.warn("Could not set the Mars sky rotation:", error); }
 
     // Light the globe from that direction. With 3D relief on, the terrain tiles carry surface
     // normals, so each slope is lit by its angle to the light (smooth Lambert shading: a soft
@@ -3474,12 +3819,156 @@
     const routeAddButton = document.getElementById("routeAddBtn");
     const routeWalkButton = document.getElementById("routeWalkBtn");
     const walkHint = document.getElementById("walkHint");
+    // Walk mode loads the FU Berlin panorama tour through serve.mjs (/fu-vtour proxy); the static
+    // demo has no proxy, so hide it there instead of offering a button that 404s.
+    if (!USE_PROXY) { routeWalkButton.hidden = true; walkHint.hidden = true; }
     const routeCalcBtn = document.getElementById("routeCalcBtn");
     const routeLoopBox = document.getElementById("routeLoop");
     const routeFastestBox = document.getElementById("routeFastest");
+    const routeRoughBox = document.getElementById("routeRough");
+    const routeSoftDustBox = document.getElementById("routeSoftDust");
+    const routeDustCoverBox = document.getElementById("routeDustCover");
+    const routeWhyEl = document.getElementById("routeWhy");
+    let routeWhyEntities = [];
+    let lastRouteWhyText = ""; // what blocked the last route, for the crew report
+    // Route-hazard thresholds (Settings > Route hazards), kept in this browser.
+    const HZ_STORE = "mars-route-hazards-v1";
+    const hzSettings = { ...Hazards.HAZARD_DEFAULTS };
+    try { Object.assign(hzSettings, JSON.parse(localStorage.getItem(HZ_STORE) || "{}")); } catch { /* defaults */ }
+    for (const k of Object.keys(hzSettings)) if (!(k in Hazards.HAZARD_DEFAULTS) || !Number.isFinite(Number(hzSettings[k]))) hzSettings[k] = Hazards.HAZARD_DEFAULTS[k];
+    const hzInputs = [...document.querySelectorAll("input[data-hz]")];
+    const showHz = () => { for (const el of hzInputs) el.value = hzSettings[el.dataset.hz]; };
+    showHz();
+    const onHzChange = () => {
+      for (const el of hzInputs) { const v = Number(el.value); if (el.value !== "" && Number.isFinite(v)) hzSettings[el.dataset.hz] = v; }
+      try { localStorage.setItem(HZ_STORE, JSON.stringify(hzSettings)); } catch { /* keep in memory */ }
+      routeStopsChanged();
+    };
+    for (const el of hzInputs) el.addEventListener("change", onHzChange);
+    document.getElementById("hzDefaults").addEventListener("click", () => {
+      Object.assign(hzSettings, Hazards.HAZARD_DEFAULTS);
+      try { localStorage.removeItem(HZ_STORE); } catch { /* ignore */ }
+      showHz(); routeStopsChanged();
+    });
+    const roughOpts = () => ({
+      blockM: hzSettings.roughBlockM, slowFromM: hzSettings.roughFreeM,
+      slowPerM: 1 / Math.max(1, hzSettings.roughDoubleM - hzSettings.roughFreeM),
+    });
+    const hazardKey = () => `${routeRoughBox.checked ? "r" : ""}${routeSoftDustBox.checked ? "s" : ""}${routeDustCoverBox.checked ? "c" : ""}|${JSON.stringify(hzSettings)}`;
+    async function loadRouteRasters(bounds) {
+      const keys = [routeSoftDustBox.checked && "softDust", routeDustCoverBox.checked && "dustCover"].filter(Boolean);
+      return Promise.all(keys.map((k) => Hazards.loadHazardRaster(k, bounds, { tileBase: TILE_BASE })));
+    }
+    let remsForRoute = null;
+    const routeRems = () => (remsForRoute ??= import("./rems.js").then((m) => m.loadRems()).catch(() => null));
+    function clearRouteWhy() {
+      lastRouteWhyText = "";
+      routeWhyEl.replaceChildren();
+      for (const e of routeWhyEntities) viewer.entities.remove(e);
+      routeWhyEntities = [];
+    }
+    // Markers on the map where a constraint forced the route away from the direct line.
+    function markRouteWhy(reason, kind) {
+      if (routeWhyEntities.length >= 12) return;
+      const color = Cesium.Color.fromCssColorString(kind === "blk" ? "#ff5252" : "#ffb74d");
+      routeWhyEntities.push(viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(reason.at.lon, reason.at.lat, 0, MARS),
+        point: { pixelSize: 9, color, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        label: {
+          text: `${kind === "blk" ? "\u26D4" : "\u26A0"} ${reason.label}: ${reason.worstText}${reason.limit ? ` (${reason.limit})` : ""}`,
+          font: "600 11px system-ui, sans-serif", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -10), disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2_500_000),
+        },
+      }));
+    }
+    const kmText = (km) => (km >= 1 ? `${km.toFixed(1)} km` : `${Math.round(km * 1000)} m`);
+    // "Why this route": per leg, what blocked the direct line and what slowed it.
+    let lastWhyArgs = null; // the last "Why this route" content, to redraw it when "For" changes
+    function renderRouteWhy(legs, { failure = null, temperature = null, sources = [] } = {}) {
+      clearRouteWhy();
+      lastWhyArgs = { legs, failure, temperature, sources };
+      lastRouteWhyText = [...new Map(legs.flatMap((l) => l.explanation?.blocked ?? []).map((r) => [r.id, r])).values()]
+        .map((r) => `${r.label} (worst ${r.worstText}${r.limit ? `, ${r.limit}` : ""})`).join("; ") +
+        (failure?.relaxed?.some((r) => r.ok) ? `. Possible if you ${failure.relaxed.filter((r) => r.ok).map((r) => r.what).join(" or ")}` : "");
+      const frag = document.createDocumentFragment();
+      const h = (text) => { const e = document.createElement("h4"); e.textContent = text; frag.append(e); };
+      const ul = () => { const e = document.createElement("ul"); frag.append(e); return e; };
+      const li = (list, cls, text) => { const e = document.createElement("li"); e.className = cls; e.textContent = text; list.append(e); };
+      const line = (r) => `${r.label}: worst ${r.worstText}${r.limit ? ` (${r.limit})` : ""}, ${r.count} cell${r.count === 1 ? "" : "s"} \u2248 ${kmText(r.km)} of the direct line`;
+      const longer = (E) => `${Math.max(0, Math.round(((E.detourRatio ?? 1) - 1) * 100))}% longer than the straight ${kmText(E.straightM / 1000)}`;
+      h(failure ? "Why there is no route" : "Why this route");
+      for (const leg of legs) {
+        const E = leg.explanation, list = ul();
+        const title = `${leg.from} \u2192 ${leg.to}`;
+        if (!E) { li(list, "", `${title}: not analysed`); continue; }
+        if (!E.blocked.length && !E.slowed.length) {
+          li(list, "ok", `${title}: direct line is clear${leg.found ? ` \u00B7 route is ${longer(E)}` : ""}`);
+        } else {
+          li(list, "", `${title}: ${leg.found ? `detoured \u00B7 route is ${longer(E)}` : "no walkable way found"}`);
+          for (const r of E.blocked) { li(list, "blk", `\u26D4 ${line(r)}`); markRouteWhy(r, "blk"); }
+          for (const r of E.slowed) { li(list, "slow", `\u26A0 ${line(r)}`); markRouteWhy(r, "slow"); }
+        }
+        for (const r of E.onRoute) li(list, "slow", `On the chosen route: ${r.label}, \u2248 ${kmText(r.km)} (worst ${r.worstText})`);
+      }
+      if (failure?.relaxed) {
+        h("What would make it possible");
+        const list = ul();
+        if (!failure.relaxed.length) li(list, "", "Checking\u2026");
+        for (const r of failure.relaxed) li(list, r.ok ? "ok" : "", `${r.ok ? "\u2713" : "\u2717"} ${r.what}`);
+      }
+      if (temperature) {
+        const list = ul();
+        li(list, temperature.level === "refuse" ? "blk" : temperature.level === "warn" ? "slow" : temperature.level === "ok" ? "ok" : "", temperature.text);
+      }
+      const reasonIds = [...new Set(legs.flatMap((l) => l.explanation ? [...l.explanation.blocked, ...l.explanation.slowed, ...l.explanation.onRoute].map((r) => r.id) : []))];
+      if (reasonIds.length) {
+        const wrap = document.createElement("div");
+        wrap.className = "whyLayers";
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = "Show these layers on the map";
+        b.title = "Switch on the Layers-tab maps behind the reasons above (Layers > Pathfinding view)";
+        b.addEventListener("click", async () => {
+          b.disabled = true;
+          const shownLayers = await showPathLayersFor(reasonIds);
+          b.disabled = false;
+          b.textContent = shownLayers.length ? `Showing: ${shownLayers.map((L) => L.chip).join(", ")}` : "Show these layers on the map";
+        });
+        wrap.append(b);
+        frag.append(wrap);
+      }
+      const src = document.createElement("div");
+      src.className = "src";
+      src.textContent = `Data: MOLA z6 heights (~2.6 km cells)${sources.length ? `; ${sources.join("; ")}` : ""}. Coarse data, not walk-scale.`;
+      frag.append(src);
+      routeWhyEl.append(frag);
+      try { crew?.routeWhyChanged?.(); } catch { /* crew panel not ready */ }
+    }
     if (!USE_PROXY) { routeFastestBox.disabled = true; routeFastestBox.parentElement.title = "Needs the server (route planning is not available in the static demo)."; }
     let routeRunning = false;
     let crew = null; // crew.js, set up below
+    let crewDestPick = null; // set while a crew member waits for "click the destination"
+    let showcaseTemp = null; // suit temperature limits of the running showcase (one run only)
+    // Who the route is for. Empty = terrain only: the route reports what the ground and hazards
+    // allow, and NO crew resources (no survival budget, walk-back pins or suit temperature check).
+    // A crew member (or a showcase that brings its own crew / suit) turns those back on.
+    const routeForSel = document.getElementById("routeFor");
+    let showcaseEntity = false; // the running showcase brings its own crew or suit (one run only)
+    let routeForMembers = [];   // [{ id, name, type }] from the crew panel
+    const routeEntity = () => routeForMembers.find((m) => m.id === routeForSel.value) ?? null;
+    const withResources = () => !!routeEntity() || showcaseEntity;
+    function syncRouteFor(list) {
+      routeForMembers = list;
+      const keep = routeForSel.value;
+      routeForSel.replaceChildren(new Option("Terrain only (no crew resources)", ""),
+        ...list.map((m) => new Option(`${m.name} · ${m.type === "astronaut" ? "astronaut" : "rover"}`, m.id)));
+      routeForSel.value = list.some((m) => m.id === keep) ? keep : "";
+    }
+    function setRouteFor(id) {
+      if (routeForMembers.some((m) => m.id === id) && routeForSel.value !== id) { routeForSel.value = id; routeForSel.dispatchEvent(new Event("change")); }
+    }
     const routeLegCache = new Map(); // planned legs, see planSequence
     const routeSmoothBox = document.getElementById("routeSmooth");
     let walkRoute = null;
@@ -3527,6 +4016,8 @@
       else setRouteStatus(`${routePoints.length} stops${routeLoopBox.checked ? " + back to start" : ""}. Press Calculate route.`);
     }
     function routeStopsChanged() {
+      showcaseTemp = null;     // any change ends a showcase's temporary suit limits
+      showcaseEntity = false;
       routeRequest++;          // cancels a calculation in progress
       setRouteRunning(false);
       clearRouteGraphics();
@@ -3617,7 +4108,7 @@
         world: Cesium.Cartesian3.fromDegrees(spot.lon, spot.lat, Number.isFinite(h) ? h : 0, MARS) };
     }
     function clearRouteGraphics() {
-      if (routeGraphic) viewer.entities.remove(routeGraphic);
+      if (routeGraphic) { dropOnTop(routeGraphic); viewer.entities.remove(routeGraphic); }
       routeGraphic = routeDisplayPath = routeRawPath = routeRawTurns = routeGrid = null;
       walkRoute = null;
       routeWalkButton.disabled = true;
@@ -3629,6 +4120,7 @@
       for (const layer of unwalkableLayers) viewer.imageryLayers.remove(layer, true);
       unwalkableLayers = [];
       clearSurvival();
+      clearRouteWhy();
     }
     function makeRoutePin(point, color, label) {
       return viewer.entities.add({
@@ -3748,7 +4240,7 @@
       return output;
     }
     function drawRouteLine(grid, path, turnIndices = []) {
-      if (routeGraphic) viewer.entities.remove(routeGraphic);
+      if (routeGraphic) { dropOnTop(routeGraphic); viewer.entities.remove(routeGraphic); }
       routeDisplayPath = routeSmoothBox.checked ? smoothRouteCorners(path, turnIndices) : path;
       const radians = Math.PI / 180;
       const showRelief = terrainReady && reliefBox.checked;
@@ -3809,9 +4301,9 @@
         polyline: {
           positions, width: 5, arcType: Cesium.ArcType.NONE,
           material: new Cesium.PolylineOutlineMaterialProperty({ color: Cesium.Color.CYAN, outlineColor: Cesium.Color.BLACK, outlineWidth: 2 }),
-          depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.18, color: Cesium.Color.CYAN }),
         },
       });
+      keepOnTop(routeGraphic, Cesium.Color.CYAN.withAlpha(0.9), 5); // never hidden by a hill
     }
 
     const wrapLon = (value) => ((value + 180) % 360 + 360) % 360 - 180;
@@ -4043,9 +4535,24 @@
       for (const pin of walkBackPins) viewer.entities.remove(pin);
       walkBackPins = [];
     }
+    // Temperature for the survival card: the same REMS ground range and suit limits as "Why this
+    // route" (Settings, or a showcase's one-run limits), only where that check applies (near Gale).
+    let remsNow = null;
+    function routeEnvironment(path) {
+      const limits = showcaseTemp ?? { min: hzSettings.tempMinC, max: hzSettings.tempMaxC };
+      if (!path?.length || !remsNow || Hazards.temperatureCheck(path, remsNow, limits)?.level === "info") return undefined;
+      const sol = remsNow.soles?.find((x) => Number.isFinite(Number(x.min_gts_temp)) && Number.isFinite(Number(x.max_gts_temp)));
+      return sol ? { groundMinC: Number(sol.min_gts_temp), groundMaxC: Number(sol.max_gts_temp), suitMinC: limits.min, suitMaxC: limits.max, source: `REMS sol ${sol.sol}` } : undefined;
+    }
+    routeRems().then((rems) => {
+      remsNow = rems;
+      if (!currentRoute || !routeEnvironment(routeRawPath)) return;
+      if (routeRawPath?.fromFile) reevaluateLoaded(); else if (withResources()) updateSurvival();
+    });
     function scenarioInputs() {
       const sc = Survival.SCENARIOS[svScenario.value] ?? Survival.SCENARIOS.standard;
-      return { scenario: svScenario.value, crew: sc.apply(Survival.DEFAULT_CREW), params: { ...(sc.params || {}), max_slope_deg: maxSlopeDeg() } };
+      return { scenario: svScenario.value, crew: sc.apply(Survival.DEFAULT_CREW), params: { ...(sc.params || {}), max_slope_deg: maxSlopeDeg() },
+        environment: routeEnvironment(routeRawPath) };
     }
     function showRoute(route, origin = route._origin ?? "live") {
       route._origin = origin;
@@ -4074,6 +4581,13 @@
       if (routeLoopBox.checked) waypoints.push({ ...waypoints[0], name: `${waypoints[0].name} (return)`, role: "haven" });
       showRoute(RouteIO.buildRoute({ path: routeRawPath, waypoints, grid: routeGrid, ...scenarioInputs() }), "live");
     }
+    // Crew A / Crew B of a loaded route file become real members in Crew & EVA (this scenario's suits)
+    function teamToCrew(label = "Demo") {
+      if (!currentRoute || currentRoute._origin === "live") return;
+      const sc = Survival.SCENARIOS[svScenario.value] ?? Survival.SCENARIOS.standard;
+      try { crew?.loadTeam({ crew: sc.apply(Survival.DEFAULT_CREW), params: sc.params || {}, route: currentRoute, label, heightAt: RouteIO.excerptSampler(currentRoute.terrain) }); }
+      catch (error) { console.warn("Could not add the team to Crew & EVA:", error); }
+    }
     function reevaluateLoaded() { // scenario changed on a route loaded from a file
       const r = currentRoute;
       const path = RouteIO.plannerPath(r);
@@ -4082,8 +4596,8 @@
         meta: { label: r.label, site: r.site, terrain_source: r.profile?.terrain_source } }), r._origin);
     }
     svScenario.addEventListener("change", () => {
-      if (routeRawPath && !routeRawPath.fromFile) updateSurvival();
-      else if (currentRoute) reevaluateLoaded();
+      if (routeRawPath && !routeRawPath.fromFile) { if (withResources()) updateSurvival(); }
+      else if (currentRoute) { reevaluateLoaded(); teamToCrew(); }
     });
     routeExportBtn.addEventListener("click", () => {
       if (!currentRoute) return;
@@ -4105,8 +4619,14 @@
       drawRouteLine(null, routeRawPath, []);
       if (route.profile?.scenario && Survival.SCENARIOS[route.profile.scenario]) svScenario.value = route.profile.scenario;
       currentRoute = route;
+      routePinPositions = route.waypoints.map((w) => ({ name: w.name, lon: w.lon, lat: w.lat }));
       reevaluateLoaded();
-      setRouteStatus(`${label} · ${route.label || route.site} · ${(route.distance_m / 1000).toFixed(2)} km · re-checked with this page's survival model`);
+      teamToCrew(label);
+      crew?.routeComputed(true);
+      const what = route.label || route.site;
+      // a file's own label often starts with the same words ("Demo excursion: haven → …"): say it once
+      const head = what && what.startsWith(label) ? what : `${label}${what && what !== label ? ` · ${what}` : ""}`;
+      setRouteStatus(`${head} · ${(route.distance_m / 1000).toFixed(2)} km · re-checked with this page's survival model`);
       const lons = route.path.map((p) => p.lon), lats = route.path.map((p) => p.lat);
       flyToSpot((Math.min(...lons) + Math.max(...lons)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2, 6000);
       document.getElementById("survivalCard").scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -4130,7 +4650,7 @@
       }
       await loadRouteFile(new TextDecoder().decode(bytes), "Demo excursion", origin);
     }
-    document.getElementById("routeDemoBtn").addEventListener("click", () =>
+    document.getElementById("routeDemoBtn")?.addEventListener("click", () =>
       loadDemoRoute().catch((error) => setRouteStatus(`Could not load the demo route: ${error.message}`)));
     Integrity.mountIntegrity(document.getElementById("integrityChip"), {
       // only the route file itself decides the route; another changed file turns the chip red but keeps the route
@@ -4147,7 +4667,9 @@
       catch (error) { setRouteStatus(`Could not open ${file.name}: ${error.message}`); }
       event.target.value = "";
     });
-    window.happyfeet = Object.assign(window.happyfeet || {}, { get route() { return currentRoute; }, loadRouteFile });
+    // Object.assign would copy the getter's value once (null); define it so it stays live
+    window.happyfeet = Object.assign(window.happyfeet || {}, { loadRouteFile });
+    Object.defineProperty(window.happyfeet, "route", { get: () => currentRoute, configurable: true, enumerable: true });
 
     async function computeTerrainRoute() {
       if (routePoints.length < 2) return;
@@ -4198,10 +4720,21 @@
         };
         // A leg that has not changed (same two stops, slope limit and kind of grid) is not
         // planned again: adding, removing or reordering stops only plans the new legs.
-        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|${routeFastestBox.checked ? "t" : "d"}|` +
+        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|${routeFastestBox.checked ? "t" : "d"}|${hazardKey()}|` +
           `${a.lon.toFixed(6)},${a.lat.toFixed(6)}|${b.lon.toFixed(6)},${b.lat.toFixed(6)}`;
+        const rasters = await loadRouteRasters(patchBounds).catch((error) => {
+          console.warn("Hazard layers unavailable:", error);
+          return [];
+        });
+        if (request !== routeRequest) return;
+        const rasterHazards = rasters.map((r) => Hazards.rasterHazard(r, hzSettings));
+        const hazardSources = [routeRoughBox.checked && "roughness computed from MOLA", ...rasters.map((r) => r.source)].filter(Boolean);
+        if ((routeSoftDustBox.checked || routeDustCoverBox.checked) && !rasters.length) hazardSources.push("TES hazard layers could not be loaded, planned without them");
+        const hazardsFor = (grid) => [routeRoughBox.checked && roughnessHazard(grid, roughOpts()), ...rasterHazards].filter(Boolean);
+        let routeFailure = null;
         const planSequence = async (grid) => {
-          const combined = { path: [], displayPath: [], turnIndices: [], waypointPositions: [], horizontalDistanceM: 0, terrainDistanceM: 0 };
+          const combined = { path: [], displayPath: [], turnIndices: [], waypointPositions: [], horizontalDistanceM: 0, terrainDistanceM: 0, reports: [] };
+          const hazards = hazardsFor(grid);
           for (let i = 1; i < waypoints.length; i++) {
             if (request !== routeRequest) return null;
             const a = lonLatToTerrainCell(grid, waypoints[i - 1].lon, waypoints[i - 1].lat);
@@ -4214,7 +4747,7 @@
             let leg = routeLegCache.get(key);
             if (leg === undefined) {
               leg = a && b ? await planTerrainRoute(grid, a, b, {
-                maxSlopeDeg: maxSlopeDeg(), shouldCancel: () => request !== routeRequest,
+                maxSlopeDeg: maxSlopeDeg(), shouldCancel: () => request !== routeRequest, hazards,
                 ...(routeFastestBox.checked ? { speedAt: (grade) => Survival.walkingSpeed(grade) } : {}),
                 onProgress: ({ expanded }) => { prog.expanded = expanded; },
               }) : null;
@@ -4222,7 +4755,12 @@
               routeLegCache.set(key, leg);
               while (routeLegCache.size > 300) routeLegCache.delete(routeLegCache.keys().next().value);
             } else prog.reused++;
-            if (!leg) return null;
+            const { from, to } = prog.leg;
+            let explanation = null;
+            try { if (a && b) explanation = explainLeg(grid, a, b, { maxSlopeDeg: maxSlopeDeg(), hazards, result: leg }); }
+            catch (error) { console.warn("Route explanation failed:", error); }
+            combined.reports.push({ from, to, explanation, found: !!leg });
+            if (!leg) { routeFailure = { grid, a, b, hazards, reports: combined.reports }; return null; }
             const legDisplayPath = leg.displayPath.map((point) => ({ ...point }));
             legDisplayPath[0] = { ...legDisplayPath[0], lon: waypoints[i - 1].lon, lat: waypoints[i - 1].lat };
             legDisplayPath[legDisplayPath.length - 1] = {
@@ -4293,15 +4831,47 @@
         // the route first; the red slope mask is painted afterwards without blocking
         drawUnwalkableOverlay(grid, () => request === routeRequest)
           .catch((error) => console.warn("Could not draw slope mask:", error));
-        if (!result) { setRouteStatus("No walkable route found at this slope limit."); crew?.routeComputed(false); return; }
+        if (!result) {
+          setRouteStatus("No walkable route found with these limits; see below for why.");
+          crew?.routeComputed(false);
+          const F = routeFailure;
+          if (F) {
+            renderRouteWhy(F.reports, { failure: { relaxed: [] }, sources: hazardSources });
+            // which single change would open a way? Each is one more A* on the failed leg.
+            const relaxed = [];
+            const tryPlan = async (what, opts) => {
+              if (request !== routeRequest || !F.a || !F.b) return;
+              const r = await planTerrainRoute(F.grid, F.a, F.b, { maxSlopeDeg: maxSlopeDeg(), hazards: F.hazards, shouldCancel: () => request !== routeRequest, ...opts });
+              if (request === routeRequest) relaxed.push({ what, ok: !!r });
+            };
+            try {
+              for (const hz of F.hazards) await tryPlan(`ignore ${hz.label}`, { hazards: F.hazards.filter((x) => x !== hz) });
+              if (maxSlopeDeg() < 45) await tryPlan(`raise the slope limit to ${Math.min(45, maxSlopeDeg() + 10)}\u00B0`, { maxSlopeDeg: Math.min(45, maxSlopeDeg() + 10) });
+            } catch (error) { console.warn("Relaxation check failed:", error); }
+            if (request === routeRequest) renderRouteWhy(F.reports, { failure: { relaxed }, sources: hazardSources });
+          }
+          return;
+        }
         drawRouteLine(grid, routeRawPath, routeRawTurns);
         prepareWalkRoute();
-        try { updateSurvival(); } catch (error) { console.warn("Survival budget failed:", error); }
+        if (withResources()) {
+          // the team survival budget is about suited crew: skip it for a rover
+          if (showcaseEntity || routeEntity()?.type === "astronaut") {
+            try { updateSurvival(); } catch (error) { console.warn("Survival budget failed:", error); }
+          } else clearSurvival();
+          if (routeEntity()) crew?.assignTo?.(routeEntity().id);
+        } else clearSurvival();
         crew?.routeComputed(true);
+        renderRouteWhy(result.reports, { sources: hazardSources });
+        routeRems().then((rems) => {
+          if (request !== routeRequest) return;
+          // suit temperature is a crew matter: terrain-only routes leave it out
+          renderRouteWhy(result.reports, { temperature: withResources() ? Hazards.temperatureCheck(routeRawPath, rems, showcaseTemp ?? { min: hzSettings.tempMinC, max: hzSettings.tempMaxC }) : null, sources: hazardSources });
+        });
         setRouteStatus(`${routeLoopBox.checked ? "Loop · " : ""}terrain ${(result.terrainDistanceM / 1000).toFixed(2)} km · horizontal ${(result.horizontalDistanceM / 1000).toFixed(2)} km · ${routeRawPath.length.toLocaleString()} samples · ${detail}` +
           (prog.reused ? ` · ${prog.reused} leg${prog.reused === 1 ? "" : "s"} reused` : ""));
       } catch (error) {
-        if (request === routeRequest) setRouteStatus(`Route failed: ${error.message}`);
+        if (request === routeRequest) { setRouteStatus(`Route failed: ${error.message}`); crew?.routeComputed(false); }
       } finally {
         if (request === routeRequest) setRouteRunning(false);
       }
@@ -4399,6 +4969,7 @@
     });
     routeLoopBox.addEventListener("change", () => { routeStopsChanged(); });
     routeFastestBox.addEventListener("change", () => { routeStopsChanged(); });
+    for (const box of [routeRoughBox, routeSoftDustBox, routeDustCoverBox]) box.addEventListener("change", () => { routeStopsChanged(); });
     maxSlopeSlider.addEventListener("input", () => {
       maxSlopeValue.textContent = `${maxSlopeDeg()}°`;
       updateSlopeMeaning();
@@ -4514,6 +5085,20 @@
     });
     clicker.setInputAction((e) => {
       if (spotPickPending) { finishSpotPick(surfaceAt(e.position.x, e.position.y)); return; }
+      if (crewDestPick) {
+        const world = surfaceAt(e.position.x, e.position.y);
+        if (!world) return; // clicked the sky: keep waiting
+        const c = MARS.cartesianToCartographic(world);
+        let point = { lon: Cesium.Math.toDegrees(c.longitude), lat: Cesium.Math.toDegrees(c.latitude), world };
+        const picked = spotsVisible ? viewer.scene.drillPick(e.position, 8) : [];
+        const spot = spotById.get(picked.map((p) => p?.id?.properties?.spotId?.getValue?.(Cesium.JulianDate.now())).find(Boolean));
+        if (spot) point = stopFromSpot(spot);
+        const done = crewDestPick;
+        crewDestPick = null;
+        viewer.scene.canvas.style.cursor = "";
+        done(point);
+        return;
+      }
       if (routePickMode === "waypoint") {
         const world = surfaceAt(e.position.x, e.position.y);
         if (!world) { routeStatus.textContent = "Click a visible point on Mars."; return; }
@@ -4541,7 +5126,10 @@
       const picked = spotsVisible && viewer.scene.pick(e.endPosition);
       viewer.scene.canvas.style.cursor = picked?.id?.properties?.spotId ? "pointer" : "";
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && probe) closeProbe(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && crewDestPick) { const done = crewDestPick; crewDestPick = null; viewer.scene.canvas.style.cursor = ""; done(null); return; }
+      if (e.key === "Escape" && probe) closeProbe();
+    });
 
     // ---------------------------------------------------------------- dock tabs
     // One panel shown at a time. Clicking the tab that is already open folds the panel down to
@@ -4583,7 +5171,7 @@
     try {
       const { initCrew } = await import("./crew.js");
       crew = initCrew({
-        Cesium, viewer, MARS, sampleTerrainHeights,
+        Cesium, viewer, MARS, sampleTerrainHeights, behindTerrainColor, keepOnTop, dropOnTop,
         getRoute: () => (routeRawPath && routePinPositions?.length >= 2
           ? { path: routeRawPath, stops: routePinPositions, loop: routeLoopBox.checked } : null),
         visualHeight: (elevationM) => (terrainReady && reliefBox.checked ? elevationM * viewer.scene.verticalExaggeration : 0),
@@ -4592,14 +5180,146 @@
           const c = MARS.cartesianToCartographic(viewCentre());
           return c ? { lon: Cesium.Math.toDegrees(c.longitude), lat: Cesium.Math.toDegrees(c.latitude) } : null;
         },
-        planWithSlope: (deg) => {
+        planWithSlope: (deg, id) => {
+          if (id) setRouteFor(id);
           maxSlopeSlider.value = String(Math.max(5, Math.min(45, Math.round(deg))));
           maxSlopeSlider.dispatchEvent(new Event("input"));
           if (routePoints.length < 2) { showTab("winRoute"); setRouteStatus("Add at least two stops (stop 1 = base), then press Calculate route."); return; }
           computeTerrainRoute();
         },
         showCrewTab: () => showTab("winCrew"),
+        showPathTab: () => showTab("winRoute"),
+        // next map click (or Escape = null) goes to done({ lon, lat, name? })
+        pickPoint: (done) => { crewDestPick = done; viewer.scene.canvas.style.cursor = "crosshair"; },
+        // plan start -> destination with this slope limit in the Path planner (one-way; the
+        // crew model walks it back for the return)
+        planFromTo: (start, dest, deg, id) => {
+          maxSlopeSlider.value = String(Math.max(5, Math.min(45, Math.round(deg))));
+          maxSlopeSlider.dispatchEvent(new Event("input"));
+          routeLoopBox.checked = false;
+          routePoints.splice(0, routePoints.length, start, dest);
+          routeStopsChanged();
+          if (id) setRouteFor(id);
+          computeTerrainRoute();
+        },
+        // short text of what blocked the last failed route (from "Why this route")
+        lastWhy: () => lastRouteWhyText,
+        // the crew list changed / the user picked a member: keep the Path tab's "For" in step
+        membersChanged: (list) => syncRouteFor(list),
+        entitySelected: (id) => setRouteFor(id),
       });
+      routeForSel.addEventListener("change", () => {
+        if (!routeRawPath || routeRawPath.fromFile) return;
+        // terrain only drops the crew resources of the route on screen; a member brings them back
+        if (!withResources()) clearSurvival();
+        else if (routeEntity()?.type === "astronaut") updateSurvival();
+        if (lastWhyArgs) {
+          const W = lastWhyArgs;
+          if (!withResources()) renderRouteWhy(W.legs, { failure: W.failure, sources: W.sources });
+          else routeRems().then((rems) => renderRouteWhy(W.legs, { failure: W.failure, sources: W.sources,
+            temperature: Hazards.temperatureCheck(routeRawPath, rems, showcaseTemp ?? { min: hzSettings.tempMinC, max: hzSettings.tempMaxC }) }));
+        }
+        if (routeEntity()) { crew?.assignTo?.(routeEntity().id); crew?.routeComputed(true); }
+      });
+      document.getElementById("routeToCrew").addEventListener("click", (e) => { e.preventDefault(); showTab("winCrew"); });
+
+    // ---------------------------------------------------------------- showcase scenarios
+    // Each one is a real route on real MOLA data whose outcome was checked on 2026-11-15
+    // (pathfinding.js on MOLA z6): it sets the stops, slope limit and hazard options, runs the
+    // planner, and points at the panel that explains the result.
+    const GALE_LANDING = { lon: 137.4417, lat: -4.5895, name: "Curiosity landing (Bradbury)" };
+    const SHOWCASES = [
+      { id: "ok", title: "✓ Feasible: short science EVA (signed demo)", demo: true,
+        story: "The committed, signed 2.3 km boxwork excursion: two suited crew, three science stops, back to the haven with every consumable above the 20% reserve. Result in Crew & EVA." },
+      { id: "faultWater", title: "✗ Suit fault: Crew B cooling-water leak (demo)", demo: true, scenario: "degraded_b_water",
+        story: "Same signed excursion, but Crew B's sublimator feedwater is at 18% (hypothetical leak). Crew B would return with 14% water, below the 20% reserve: refused. Crew A and Crew B appear in Crew & EVA; Crew B's card names cooling water as the limit." },
+      { id: "faultO2", title: "✗ Suit fault: Crew B oxygen at 30% (demo)", demo: true, scenario: "degraded_b_o2",
+        story: "Crew B's oxygen was only recharged to 30% (hypothetical). Crew B runs out about 2 km out, on the way back from the last stop. Follow Crew B in Crew & EVA and press Start EVA to see the alerts fire." },
+      { id: "longDwell", title: "✓ Long sampling: 1 h at every stop (demo)", demo: true, scenario: "long_dwell",
+        story: "An hour of sampling at each of the three stops instead of 20 min. Still GO, but Crew B comes back with 44% oxygen instead of 69%: dwell time costs consumables." },
+      { id: "detourSlope", title: "↪ Detour: slopes too steep (Gale → Mount Sharp, 10°)",
+        stops: [GALE_LANDING, { lon: 137.85, lat: -5.08, name: "Mount Sharp (lower slopes)" }], slope: 10, layers: ["slope"],
+        story: "A 10° limit (e.g. a heavily loaded rover). The direct line crosses 19.5° slopes, so the route bends around them and comes out almost 3× longer. See “Why this route” and the red / orange labels." },
+      { id: "detourRough", title: "↪ Detour: rough terrain (Gale → Mount Sharp, avoid rough)",
+        stops: [GALE_LANDING, { lon: 137.85, lat: -5.08, name: "Mount Sharp (lower slopes)" }], slope: 25, rough: true, layers: ["roughness"],
+        story: "Slope alone allows the straight line; with “Avoid rough terrain” the route goes about 13% longer to stay off bumpy ground (worst roughness ~370 m)." },
+      { id: "fastest", title: "⏱ Fastest is not shortest (Gale → Mount Sharp, timed)",
+        stops: [GALE_LANDING, { lon: 137.85, lat: -5.08, name: "Mount Sharp (lower slopes)" }], slope: 25, fastest: true,
+        story: "“Fastest walk” on: the route is ~7% longer (44.3 vs 41.4 km) but ~8 min quicker on foot (26.1 vs 26.2 h), because it avoids the steepest climbs. Untick “Fastest walk” and recalculate to compare." },
+      { id: "cargo", title: "✗ Impossible: heavy cargo rover at 5° (Gale)",
+        stops: [GALE_LANDING, { lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }], slope: 5, layers: ["slope"],
+        story: "A cargo rover limited to 5°: even the gentle crater floor has 8.6° stretches, so there is no way through. The panel shows which limit would open one." },
+      { id: "wall", title: "✗ Impossible: canyon wall (Coprates Chasma, 15°)",
+        stops: [{ lon: -62.0, lat: -13.6, name: "Coprates Chasma floor" }, { lon: -62.0, lat: -11.9, name: "Plateau above the canyon" }], slope: 15, layers: ["slope"],
+        story: "Valles Marineris walls reach ~28°. At a 15° limit there is no way up; the panel names the slope and finds that raising the limit to 25° would open a (much longer) ramp." },
+      { id: "dust", title: "✗ Impossible: soft dust mantle (Meridiani → Arabia)",
+        stops: [{ lon: 10, lat: 0, name: "Firm plains east of Meridiani" }, { lon: 15, lat: 0, name: "Dust mantle (Arabia margin)" }], slope: 25, softDust: true, layers: ["softDust"],
+        story: "The terrain is easy, but the route leaves firm ground (thermal-inertia index ~40%, like the landing sites) and runs into a regional dust mantle near 12°E (bottom of the colour ramp). Orbital data, ~21 km/px, qualitative." },
+      { id: "far", title: "✗ Too far on foot, ✓ fine for a rover (Gale, 15 km)",
+        stops: [GALE_LANDING, { lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }], slope: 25, crew: ["astronaut", "perseverance"],
+        story: "Walkable terrain, but 15 km out and back is beyond a suit's oxygen with the reserve: the survival budget refuses and the astronaut's point of no return is ~4.5 km out. A Perseverance-class rover on the same route: feasible, in sols. Compare both in Crew & EVA." },
+      { id: "rovers", title: "🛰 Rover comparison: pressurized rover vs Curiosity (Gale, 15 km)",
+        stops: [GALE_LANDING, { lon: 137.3931, lat: -4.7869, name: "Gale · boxwork target" }], slope: 20, crew: ["pressurized", "curiosity"],
+        story: "Same 15 km at a 20° limit: a pressurized crew rover (~10 km/h, 72 h life support) does it in hours with life support to spare; Curiosity (tens of m/h, ~4 h of driving per sol) needs months of sols but never runs out (RTG). Compare both in Crew & EVA." },
+      { id: "cold", title: "❄ Too cold at night (hypothetical −60 °C suit limit)", demo: true, scenario: "standard", temp: { min: -60, max: 39 },
+        story: "The signed boxwork EVA (GO with standard suits), with a hypothetical suit rated only down to −60 °C ground temperature (this run only). REMS measured about −84 °C on the latest night, so the survival card adds a warning: daytime EVA only." },
+      { id: "hot", title: "🌡 Too hot for the suit (hypothetical 0 °C suit limit)", demo: true, scenario: "standard", temp: { min: -129, max: 0 },
+        story: "The signed boxwork EVA (GO with standard suits), with a hypothetical suit rated only to 0 °C ground temperature (this run only). Curiosity's REMS measured up to about +4 °C on the latest sol, so the survival card refuses: too hot for the suit." },
+    ];
+    const showcaseSel = document.getElementById("showcaseSel"), showcaseStory = document.getElementById("showcaseStory");
+    for (const sc of SHOWCASES) showcaseSel.add(new Option(sc.title, sc.id));
+    const showStory = () => { showcaseStory.textContent = SHOWCASES.find((x) => x.id === showcaseSel.value)?.story ?? ""; };
+    showcaseSel.addEventListener("change", showStory);
+    showStory();
+    document.getElementById("showcaseRun").addEventListener("click", () => {
+      const sc = SHOWCASES.find((x) => x.id === showcaseSel.value);
+      if (!sc) return;
+      if (sc.demo) {
+        // a demo scenario may bring a hypothetical suit temperature limit (this run only)
+        showcaseTemp = sc.temp ?? null;
+        showcaseEntity = !!sc.temp;
+        showTab("winCrew");
+        loadDemoRoute().then(() => {
+          // the file names its own scenario; the showcase's suit scenario wins (and re-builds Crew A / B)
+          svScenario.value = sc.scenario ?? "standard";
+          svScenario.dispatchEvent(new Event("change"));
+        }).catch((error) => setRouteStatus(`Could not load the demo route: ${error.message}`));
+        return;
+      }
+      // options exactly as the scenario needs, everything else back to neutral
+      routeLoopBox.checked = false;
+      routeFastestBox.checked = !!sc.fastest;
+      routeRoughBox.checked = !!sc.rough;
+      routeSoftDustBox.checked = !!sc.softDust;
+      routeDustCoverBox.checked = false;
+      maxSlopeSlider.value = String(sc.slope);
+      maxSlopeSlider.dispatchEvent(new Event("input"));
+      routePoints.splice(0, routePoints.length, ...sc.stops.map((st) => ({ ...st })));
+      routeStopsChanged();                       // also ends any earlier showcase override
+      showcaseTemp = sc.temp ?? null;
+      showcaseEntity = !!(sc.crew || sc.temp);
+      // a terrain scenario uses standard suits: a suit fault picked by an earlier (demo) scenario
+      // must not leak into it
+      if (svScenario.value !== "standard") svScenario.value = "standard";
+      if (sc.crew) crew?.showcase?.(sc.crew);
+      if (sc.layers) showPathLayersFor(sc.layers.flatMap((k) => PATH_LAYERS.find((L) => L.key === k)?.reasons ?? [])).catch(() => {});
+      const lons = sc.stops.map((st) => st.lon), lats = sc.stops.map((st) => st.lat);
+      const padDeg = Math.max(0.15, 0.25 * Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats)));
+      viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(Math.min(...lons) - padDeg, Math.min(...lats) - padDeg, Math.max(...lons) + padDeg, Math.max(...lats) + padDeg), duration: 1.5 });
+      showTab("winRoute");
+      computeTerrainRoute();
+    });
+
+    // ---------------------------------------------------------------- tutorial (tutorial.js)
+    // Welcome pop-up on every load (follow along or skip), Settings > Launch tutorial, and hover
+    // help on every control in the dock.
+    import("./tutorial.js").then(({ initTutorial }) => {
+      const tut = initTutorial({
+        showTab: (id) => showTab(id),
+        runShowcase: (id) => { showcaseSel.value = id; showcaseSel.dispatchEvent(new Event("change")); document.getElementById("showcaseRun").click(); },
+      });
+      tut.welcome();
+    }).catch((error) => console.warn("Tutorial unavailable:", error));
     } catch (error) { console.error("Crew panel failed:", error); }
 
     // ---------------------------------------------------------------- cache info
@@ -4653,7 +5373,8 @@
     const goJezero = () => {
       if (flown) return;
       flown = true;
-      flyToSpot(JEZERO.lon, JEZERO.lat, 140_000);
+      // (no automatic flight any more: the page opens on the whole planet and the user decides
+      // where to go; the tutorial and the scenarios fly where they need to)
     };
     const onLoaded = (queued) => {
       if (queued === 0 && globe.tilesLoaded) {

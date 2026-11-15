@@ -65,7 +65,7 @@ export async function verifyManifest(manifestText, signatureB64, publicKeyB64) {
   let sig;
   try { sig = unb64(signatureB64.trim()); } catch { throw new IntegrityError("signature", "manifest.sig is not base64"); }
   const ok = sig.length === 64 && await subtle.verify({ name: "Ed25519" }, key, sig, te.encode(manifestText));
-  if (!ok) throw new IntegrityError("signature", "manifest signature does not match the pinned public key");
+  if (!ok) throw new IntegrityError("signature", "manifest signature invalid (manifest modified, or signed with a different key)");
   const m = parseManifest(manifestText);
   if (m.key_id !== keyId(unb64(publicKeyB64))) throw new IntegrityError("signature", "manifest key_id is not the pinned key");
   return m;
