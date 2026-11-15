@@ -1,5 +1,19 @@
 # Deploying the viewer
 
+## Live now: static demo (GitHub Pages)
+
+**https://koyphshi.github.io/happyfeet-mars-demo/** (VR: `…/vr.html`), built by `scripts/build-static.sh`
+and pushed to the repo `koyphshi/happyfeet-mars-demo` (do not edit it by hand). Verified 15 Nov 08:45 with a
+cold headless Chrome: globe, layers, demo excursion GO, degraded scenario REFUSED, tamper test refused.
+Not available there: planning NEW routes (needs `/terrain` from the Node server), the Trek tile cache, live REMS.
+
+Update it after a merge to `main`:
+
+```sh
+scripts/build-static.sh /tmp/site && cd /tmp/site && git init -b main && git add -A && \
+  git commit -m "Static demo build" && git push -f git@github.com:koyphshi/happyfeet-mars-demo.git main
+```
+
 The page needs `web/serve.mjs`: it streams MOLA terrain (`/terrain/*`) for the route planner, proxies
 and caches NASA Trek tiles (`/trek/*`) and relays REMS weather (`/rems`). A static host alone shows the
 globe (Cesium falls back to the pinned jsDelivr build) and the **demo excursion** (`route.json`), but

@@ -6,7 +6,7 @@ the boxes and fill the Members tab. **Only the last saved submission is judged.*
 
 ## Submission checklist (human)
 
-- [ ] Public demo link loads in a private window, logged out (see `docs/deploy.md`)
+- [ ] Public demo link loads in a private window, logged out: https://koyphshi.github.io/happyfeet-mars-demo/ (static; full server pending, see `docs/deploy.md`)
 - [ ] Path tab → *Load demo excursion* → survival card shows **GO**; scenario *Crew B oxygen at 30 %* → **REFUSED** with the reason
 - [ ] Layers tab shows ≥ 3 data kinds with provenance (optical, topographic, thermal, atmospheric)
 - [ ] 7-slide deck uploaded (over 7 slides is not evaluated)
