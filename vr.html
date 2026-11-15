@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boxwork Excursion VR</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #120b08; color: #e5e7eb; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+    canvas { display: block; }
+    #ui { position: fixed; left: 12px; top: 12px; max-width: min(420px, calc(100vw - 24px)); background: rgba(10, 12, 18, .78);
+          border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; }
+    #ui h1 { font-size: 15px; margin: 0 0 4px; }
+    #ui .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    #ui button, #ui select { font: inherit; font-size: 12px; background: #1f2937; color: #e5e7eb; border: 1px solid #475569; border-radius: 5px; padding: 4px 8px; cursor: pointer; }
+    #ui button:hover { background: #334155; }
+    #status { color: #cbd5e1; margin-top: 6px; }
+    .hint { color: #94a3b8; font-size: 11.5px; }
+    #back { color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h1>Boxwork excursion · VR</h1>
+    <div class="hint">Replays the signed demo <code>route.json</code>: terrain patch, route, three science stops, survival HUD.
+      Visualization of a ~200 m/px DEM, <b>not a surveyed walk-scale model</b>. 1 unit = 1 m, eye height 1.6 m.</div>
+    <div class="row" id="stops"></div>
+    <div class="row">
+      <button id="play" type="button">▶ Replay walk</button>
+      <select id="exag" title="Vertical exaggeration (labelled on the HUD)"><option value="1">Relief 1×</option><option value="3">Relief 3×</option><option value="5">Relief 5×</option></select>
+      <a id="back" href="./">← Map</a>
+    </div>
+    <div id="status">Loading route…</div>
+    <div class="hint">Desktop: drag to look, click the ground or a beacon to teleport, 0 overview, 1–5 stops, ←/→ snap turn, H hide HUD, space replay. Headset: <b>Enter VR</b>, trigger on the ground or a beacon to teleport, thumbstick left/right to snap-turn 30°.</div>
+  </div>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+  <script type="module" src="./vr.js"></script>
+</body>
+</html>

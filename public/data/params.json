@@ -1,0 +1,52 @@
+{
+ "schema": "happyfeet.params/1",
+ "source": "web/survival.js (SURVIVAL_PARAMS, DEFAULT_CREW, SCENARIOS); documented in docs/assumptions.md",
+ "params": {
+  "version": 1,
+  "g_mars": 3.71,
+  "v0_kmh": 2.5,
+  "tobler_a": 3.5,
+  "tobler_b": 0.05,
+  "max_slope_deg": 25,
+  "metabolic_flat_w": 272,
+  "metabolic_stop_w": 230,
+  "eta_muscle": 0.25,
+  "suit_mass_kg": 60,
+  "e_o2_j_per_kg": 14070000,
+  "l_sub_j_per_kg": 2830000,
+  "f_cool": 0.8,
+  "suit_power_w": 49,
+  "stop_dwell_s": 1200,
+  "reserve_frac": 0.2,
+  "blackout_grace_s": 60,
+  "blackout_k": 1,
+  "haven_antenna_m": 3,
+  "suit_antenna_m": 2
+ },
+ "crew": [
+  {
+   "id": "A",
+   "name": "Crew A",
+   "body_mass_kg": 72,
+   "metabolic_scale": 1,
+   "o2_kg": 0.54,
+   "water_kg": 5.2,
+   "battery_wh": 390
+  },
+  {
+   "id": "B",
+   "name": "Crew B",
+   "body_mass_kg": 88,
+   "metabolic_scale": 1.15,
+   "o2_kg": 0.54,
+   "water_kg": 5.2,
+   "battery_wh": 390
+  }
+ ],
+ "scenarios": {
+  "standard": "Standard suits",
+  "degraded_b_water": "Hypothetical: Crew B feedwater at 18 % (sublimator leak)",
+  "degraded_b_o2": "Hypothetical: Crew B oxygen at 30 % (incomplete recharge)",
+  "long_dwell": "Hypothetical: 1 h of sampling at each stop"
+ }
+}
