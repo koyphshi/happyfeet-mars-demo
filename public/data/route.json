@@ -164,7 +164,7 @@
   }
  ],
  "distance_m": 2253,
- "eta_s": 7448,
+ "eta_s": 7466,
  "timeline": [
   {
    "index": 0,
@@ -175,28 +175,28 @@
   {
    "index": 3,
    "name": "Ridge crest",
-   "t_s": 1384,
+   "t_s": 1393,
    "dist_m": 723,
    "dwell_s": 1200
   },
   {
    "index": 5,
    "name": "Hollow floor",
-   "t_s": 3147,
+   "t_s": 3157,
    "dist_m": 1016,
    "dwell_s": 1200
   },
   {
    "index": 6,
    "name": "Layer contact",
-   "t_s": 4701,
+   "t_s": 4711,
    "dist_m": 1162,
    "dwell_s": 1200
   },
   {
    "index": 12,
    "name": "Haven (return)",
-   "t_s": 7448,
+   "t_s": 7466,
    "dist_m": 2253
   }
  ],
@@ -204,7 +204,7 @@
   {
    "from": 3,
    "to": 8,
-   "duration_s": 1550,
+   "duration_s": 1554,
    "from_m": 723,
    "to_m": 1428
   }
@@ -223,7 +223,7 @@
    "crew": "Crew B",
    "key": "o2",
    "label": "oxygen",
-   "reserve_frac": 0.6866094930111895
+   "reserve_frac": 0.6859236549402928
   },
   "crew": [
    {
@@ -231,27 +231,27 @@
     "name": "Crew A",
     "used": {
      "o2_kg": 0.148,
-     "water_kg": 0.716,
-     "battery_wh": 101.4
+     "water_kg": 0.717,
+     "battery_wh": 101.6
     },
     "reserve": {
-     "o2": 0.727,
+     "o2": 0.726,
      "water": 0.862,
-     "battery": 0.74
+     "battery": 0.739
     },
     "limiting": {
      "key": "o2",
      "label": "oxygen",
-     "reserve_frac": 0.7268250984492859
+     "reserve_frac": 0.7262291775386728
     },
     "walk_back": {
      "index": 12,
      "dist_m": 2253
     },
     "tightest": {
-     "margin_frac": 0.527,
-     "index": 8,
-     "dist_m": 1428,
+     "margin_frac": 0.526,
+     "index": 6,
+     "dist_m": 1162,
      "consumable": "oxygen"
     },
     "failure": null
@@ -260,26 +260,26 @@
     "id": "B",
     "name": "Crew B",
     "used": {
-     "o2_kg": 0.169,
-     "water_kg": 0.802,
-     "battery_wh": 101.4
+     "o2_kg": 0.17,
+     "water_kg": 0.804,
+     "battery_wh": 101.6
     },
     "reserve": {
-     "o2": 0.687,
-     "water": 0.846,
-     "battery": 0.74
+     "o2": 0.686,
+     "water": 0.845,
+     "battery": 0.739
     },
     "limiting": {
      "key": "o2",
      "label": "oxygen",
-     "reserve_frac": 0.6866094930111895
+     "reserve_frac": 0.6859236549402928
     },
     "walk_back": {
      "index": 12,
      "dist_m": 2253
     },
     "tightest": {
-     "margin_frac": 0.487,
+     "margin_frac": 0.486,
      "index": 6,
      "dist_m": 1162,
      "consumable": "oxygen"
@@ -287,7 +287,7 @@
     "failure": null
    }
   ],
-  "risk_cost_s": 1490,
+  "risk_cost_s": 1494,
   "return_leg": "loop"
  },
  "reports": [],
@@ -15288,5 +15288,7 @@
  "honesty": [
   "Terrain is MOLA at kilometre scale: route geometry is indicative, not walk-scale.",
   "Consumable coefficients are ASSUMED unless docs/assumptions.md cites a source."
- ]
+ ],
+ "survival_recomputed_at": "2026-11-15T11:01:15.419Z",
+ "survival_note": "Survival block recomputed on the same path with densified (100 m) pricing over terrain.heights; path, waypoints and terrain unchanged."
 }
