@@ -182,7 +182,7 @@ function analyse(m, reservePct) {
   // the planned stay itself must fit too (a fixed stay longer than the maximum is not safe)
   const stayFits = m.stayH == null || m.stayH <= stayMax + 1e-9;
   return {
-    F, Rt, Bk, backAt, outCal, retCal, stayMax, stayLimit, stay: stayUsed, stops, pnr, pnrBy, end, res,
+    F, Rt, Bk, backAt, outCal, retCal, stayMax, stayLimit, stayFits, stay: stayUsed, stops, pnr, pnrBy, end, res,
     destName: P.stopNames[Math.max(0, destStop)], outKm: F.d[N - 1] / 1000, retKm: Rt.d.at(-1) / 1000,
     steep: F.steep.length + (P.loop ? Rt.steep.length : 0),
     feasible: stayMax >= 0 && stayFits && !F.steep.length && !(P.loop && Rt.steep.length),
@@ -444,7 +444,11 @@ export function initCrew(api) {
   function statusText(m) {
     const L = live.get(m.id), A = analyses.get(m.id);
     if (!A) return "No route assigned";
-    if (!m.eva) return A.feasible ? `Ready · ${fmtDur(A.outCal)} to ${A.destName}` : (A.stayMax < 0 ? "Cannot return with reserve" : "Route too steep for this member");
+    if (!m.eva) {
+      if (A.feasible) return `Ready · ${fmtDur(A.outCal)} to ${A.destName}`;
+      if (A.stayMax < 0 || !A.stayFits) return `Cannot return with reserve: ${RES_BY[A.stayLimit]?.name ?? "consumables"} below ${settings.reserve}%`;
+      return "Route too steep for this member";
+    }
     const s = L?.s;
     if (!s) return "";
     const remaining = timelines.get(m.id).at(-1).c - s.c;
@@ -514,7 +518,7 @@ export function initCrew(api) {
       const ok = A.feasible;
       report = `<div class="crewVerdict ${ok ? "ok" : "bad"}">${ok ? `✓ Can go, stay up to ${fmtDur(A.stayMax)} at ${esc(A.destName)}, and come back` : "✗ Not safe as planned"}` +
         `${!ok && A.steep ? ` · ${A.steep} stretch${A.steep === 1 ? "" : "es"} steeper than ${m.maxSlope}°` : ""}` +
-        `${!ok && A.stayMax < 0 ? ` · ${RES_BY[A.stayLimit]?.name ?? A.res.map((k) => RES_BY[k].name).join("/")} runs below ${res}% before getting back` : ""}</div>` +
+        `${!ok && (A.stayMax < 0 || !A.stayFits) ? ` · ${RES_BY[A.stayLimit]?.name ?? A.res.map((k) => RES_BY[k].name).join("/")} runs below ${res}% before getting back` : ""}</div>` +
         `<table class="crewTab">` +
         `<tr><td>Out to ${esc(A.destName)}</td><td>${fmtKm(A.outKm)} · ${fmtDur(A.outCal)}</td></tr>` +
         A.stops.slice(1, -1).map((s) => `<tr class="minor"><td>· ${esc(s.name)}</td><td>${fmtKm(s.km)} · +${fmtDur(s.h)}${s.dwellH ? ` · sample ${Math.round(s.dwellH * 60)} min` : ""}</td></tr>`).join("") +
