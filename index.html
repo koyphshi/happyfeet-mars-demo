@@ -397,6 +397,58 @@
       position: absolute; z-index: 6; width: 10px; height: 10px; margin: -6px 0 0 -6px;
       border: 2px solid #ffd54f; border-radius: 50%; pointer-events: none;
     }
+    /* crew */
+    #crewList { margin: 6px 0; display: flex; flex-direction: column; gap: 5px; }
+    .crewRow { text-align: left; width: 100%; padding: 6px 8px; background: #1a1a1a; color: #ddd; border: 1px solid #333;
+      border-left: 3px solid var(--k); border-radius: 5px; cursor: pointer; font: 12px system-ui, sans-serif; }
+    .crewRow.on { background: #232220; border-color: #555; border-left-color: var(--k); }
+    .crewRow.warn { box-shadow: inset 0 0 0 1px #c9a227; }
+    .crewRow.danger { box-shadow: inset 0 0 0 1px #e5534b; animation: crewPulse 1s infinite alternate; }
+    @keyframes crewPulse { to { background: #3a1716; } }
+    .crewTop { display: flex; align-items: center; gap: 6px; }
+    .crewTop i { width: 9px; height: 9px; border-radius: 50%; background: var(--k); }
+    .crewTop em { color: #888; font-style: normal; font-size: 11px; }
+    .crewTop .fol { margin-left: auto; color: #e8b85a; font-size: 10.5px; }
+    .crewStat { color: #aaa; font-size: 11.5px; margin: 2px 0; }
+    .crewBar { display: grid; grid-template-columns: 34px 1fr 34px; gap: 5px; align-items: center; font-size: 11px; color: #bbb; }
+    .crewBar .track { position: relative; height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; }
+    .crewBar .track i { display: block; height: 100%; background: #4caf50; }
+    .crewBar .track i.mid { background: #c9a227; } .crewBar .track i.low { background: #e5534b; }
+    .crewBar .track b { position: absolute; top: 0; bottom: 0; width: 1px; background: #fff8; }
+    .crewBar .v { text-align: right; font: 11px ui-monospace, Consolas, monospace; }
+    .crewBar .rtg { grid-column: 2 / 4; color: #8a8; }
+    #crewDetail { border: 1px solid #333; border-radius: 6px; padding: 8px; background: #161616; }
+    .crewHead { display: flex; gap: 6px; }
+    .crewHead input:first-child { flex: 1; font: 600 13px system-ui, sans-serif; }
+    #crewDetail input, #crewDetail select { background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 3px 5px; font: 12px system-ui, sans-serif; min-width: 0; }
+    #crewDetail input[type=color] { width: 34px; padding: 0 2px; height: 26px; }
+    .crewF { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #aaa; }
+    .crewF.wide { margin-top: 6px; }
+    .crewGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; margin: 6px 0; }
+    .crewGrid input, .crewF select { width: 100%; box-sizing: border-box; }
+    .crewHead input:first-child { width: 100%; box-sizing: border-box; }
+    .crewVerdict { margin: 6px 0 4px; padding: 5px 7px; border-radius: 4px; font-weight: 600; font-size: 12px; }
+    .crewVerdict.ok { background: #1d3320; color: #9be59f; } .crewVerdict.bad { background: #3a1a18; color: #ff9d94; }
+    .crewTab { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .crewTab td { padding: 2px 0; border-bottom: 1px solid #262626; color: #ccc; }
+    .crewTab td:last-child { text-align: right; color: #eee; font-variant-numeric: tabular-nums; }
+    .crewTab tr.minor td { color: #888; font-size: 11px; }
+    .crewBtns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .crewBtns button, #winCrew .routeRow button, button.mini { padding: 4px 8px; cursor: pointer; background: #262626; color: #eee; border: 1px solid #444; border-radius: 4px; font: 12px system-ui, sans-serif; }
+    .crewBtns button:disabled { opacity: 0.45; cursor: default; }
+    .crewBtns button.primary { background: #2f6fb3; border-color: #2f6fb3; }
+    .crewBtns button.warnBtn { background: #7a5a12; border-color: #a07818; }
+    .crewBtns button.danger { margin-left: auto; color: #ff9d94; }
+    button.mini { padding: 2px 6px; font-size: 11px; }
+    #winCrew .routeRow select { flex: 1; min-width: 0; background: #1f1f1f; color: #eee; border: 1px solid #444; border-radius: 4px; }
+    #crewLog { max-height: 130px; overflow: auto; font-size: 11px; color: #aaa; }
+    .crewLogRow { padding: 1px 0; } .crewLogRow.warn { color: #e8c35a; } .crewLogRow.danger { color: #ff8a80; }
+    #crewAlerts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; flex-direction: column;
+      gap: 6px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+    .crewToast { pointer-events: auto; cursor: pointer; padding: 8px 11px; border-radius: 6px; background: rgba(20, 20, 20, 0.94);
+      border-left: 4px solid #4fc3f7; color: #eee; font: 12.5px/1.35 system-ui, sans-serif; box-shadow: 0 3px 12px #0008; }
+    .crewToast.warn { border-left-color: #e8b85a; } .crewToast.danger { border-left-color: #e5534b; background: rgba(60, 16, 14, 0.96); }
+    .crewToast .to { color: #888; font-size: 10.5px; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -409,6 +461,7 @@
       <button type="button" role="tab" data-win="winLayers" aria-controls="winLayers" title="Map layers"><span class="ico">▤</span>Layers</button>
       <button type="button" role="tab" data-win="winSpots" aria-controls="winSpots" title="Mission spots, tags and the rover road"><span class="ico">◎</span>Spots</button>
       <button type="button" role="tab" data-win="winRoute" aria-controls="winRoute" title="Terrain route planner"><span class="ico">⤳</span>Path</button>
+      <button type="button" role="tab" data-win="winCrew" aria-controls="winCrew" title="Astronauts and rovers: ETA, oxygen / battery, comms, alerts"><span class="ico">☻</span>Crew</button>
     </nav>
     <section class="win" id="winSettings" role="tabpanel">
       <div class="winBody">
@@ -477,6 +530,34 @@
           </select>
         </div>
         <div class="setNote">Far out, pins hide so the planet stays clear. Small named features (craters…) appear only closer, in proportion to their size. A selected spot always stays visible.</div>
+
+        <div class="sub">Crew &amp; EVA</div>
+        <div class="setRow">
+          <span>Return reserve</span>
+          <input id="crewReserve" type="range" min="5" max="50" step="1" value="20" title="Oxygen / battery that must be left when back at base" />
+          <span id="crewReserveVal">20%</span>
+        </div>
+        <div class="setRow">
+          <span>Radio range</span>
+          <select id="crewComms" title="Suit / rover radio range to the base (line of sight is also checked against the terrain)">
+            <option value="2">2 km</option><option value="5">5 km</option><option value="10" selected>10 km</option>
+            <option value="20">20 km</option><option value="50">50 km (relay)</option><option value="1000">No limit</option>
+          </select>
+        </div>
+        <div class="setRow">
+          <span>Base antenna</span>
+          <select id="crewMast" title="Height of the base antenna above the ground">
+            <option value="2">2 m</option><option value="3" selected>3 m</option><option value="10">10 m mast</option><option value="30">30 m tower</option>
+          </select>
+        </div>
+        <div class="setRow">
+          <span>Simulation</span>
+          <select id="crewScale" title="How fast EVAs play out">
+            <option value="1">Real time</option><option value="10">10× faster</option><option value="60" selected>60× (1 min = 1 h)</option>
+            <option value="600">600×</option><option value="3600">3600× (1 s = 1 h)</option>
+          </select>
+        </div>
+        <div class="setNote">Max stay at a destination keeps this reserve for the trip back. Alerts fire below it, near the point of no return, and when the radio loses line of sight to the base.</div>
 
         <div class="sub">Performance</div>
         <div class="setRow">
@@ -605,6 +686,7 @@
           <div class="routeSect">
             <label class="routeOpt"><input id="routeLoop" type="checkbox" /> Return to start (A → … → A)</label>
             <label class="routeOpt"><input id="routeSmooth" type="checkbox" checked /> Smooth turns (Bezier)</label>
+            <label class="routeOpt" title="Minimise suited walking time (survival.js speed model) instead of distance"><input id="routeFastest" type="checkbox" /> Fastest walk (time, not distance)</label>
             <label id="slopeRow">Max slope <input id="maxSlope" type="range" min="5" max="45" step="1" value="25" /><span id="maxSlopeValue">25°</span></label>
             <div id="slopeMeaning" class="hint">At 25°, allow up to 47 m elevation change per 100 m.</div>
             <div class="hint">Red cells exceed the slope limit and cannot be used by the route.</div>
@@ -634,7 +716,29 @@
         </div>
       </div>
     </section>
+
+    <section class="win" id="winCrew" role="tabpanel">
+      <div class="winBody">
+        <div class="sub" style="margin-top:0">Crew &amp; rovers</div>
+        <div class="routeRow">
+          <button id="crewAddAstro" type="button">＋ Astronaut</button>
+          <select id="crewRoverKind" aria-label="Rover type">
+            <option value="pressurized">Pressurized crew rover</option>
+            <option value="perseverance">Perseverance</option>
+            <option value="curiosity">Curiosity</option>
+          </select>
+          <button id="crewAddRover" type="button">＋ Rover</button>
+        </div>
+        <div id="crewEmpty" class="hint">Add an astronaut or a rover. Each one appears on the map at the view centre and can be given the route from the Path tab.</div>
+        <div id="crewList"></div>
+        <div id="crewDetail" hidden></div>
+        <div class="routeHead" style="margin-top:10px"><span>Alerts</span><button id="crewDesktop" type="button" class="mini" title="Also show alerts as desktop notifications">Enable desktop alerts</button></div>
+        <div id="crewLog"></div>
+        <div class="hint">Model, not live telemetry: speed falls with slope (Tobler for walking), O₂ use rises uphill, rest uses less. Reserve, radio range and simulation speed are in Settings.</div>
+      </div>
+    </section>
   </div>
+  <div id="crewAlerts" aria-live="assertive"></div>
   <div id="clock">
     <div id="clockTime">--:--:--</div>
     <div id="clockSub">local solar time</div>
@@ -736,7 +840,7 @@
         "Cesium did not load. In the web folder run:  npm install cesium  and reload.";
       return;
     }
-    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask } = await import("./pathfinding.js");
+    const { estimateTerrainPatchCells, loadTerrainCorridor, loadTerrainPatch, lonLatToTerrainCell, planTerrainRoute, terrainCellSlopeDeg, steepMask, sampleTerrainHeights } = await import("./pathfinding.js");
     const RouteIO = await import("./route-io.js");
     const Survival = await import("./survival.js");
     const { renderSurvivalCard } = await import("./survival-card.js");
@@ -2263,11 +2367,10 @@
     roadToggle.addEventListener("click", () =>
       setTraverseVisible(!(traverseEntity && traverseEntity.show)));
     spotVrButton.addEventListener("click", () => {
-      if (selectedSpot?.vrUrl) {
-        window.open(selectedSpot.vrUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-      statusEl.textContent = "Street-view mode is planned for this spot but is not available yet.";
+      // boxwork -> the WebXR replay of the demo excursion; other spots -> their NASA source page
+      const target = selectedSpot?.vrUrl ?? (selectedSpot?.id === "gale-boxwork" ? "./vr.html" : selectedSpot?.url);
+      if (target) { window.open(target, "_blank", "noopener,noreferrer"); return; }
+      statusEl.textContent = "No street view or source page for this spot.";
     });
     document.getElementById("spotClose").addEventListener("click", closeSpotCard);
     async function selectSpot(spot) {
@@ -2330,7 +2433,8 @@
         spotImage.removeAttribute("src"); spotImage.alt = ""; spotImageCaption.textContent = "";
       }
       spotVrButton.hidden = !spot.vrEnabled;
-      spotVrButton.textContent = spot.vrUrl ? "Open 360° / VR view" : "Open street view";
+      spotVrButton.textContent = spot.vrUrl ? "Open 360° / VR view"
+        : spot.id === "gale-boxwork" ? "Open VR replay" : spot.url ? "Open NASA source page" : "Open street view";
       const note = document.getElementById("spotNote");
       note.replaceChildren();
       const text = [spot.date, spot.note].filter(Boolean).map((t) => t.replace(/\.$/, "")).join(". ");
@@ -3364,7 +3468,10 @@
     const routeAddButton = document.getElementById("routeAddBtn");
     const routeCalcBtn = document.getElementById("routeCalcBtn");
     const routeLoopBox = document.getElementById("routeLoop");
+    const routeFastestBox = document.getElementById("routeFastest");
+    if (!USE_PROXY) { routeFastestBox.disabled = true; routeFastestBox.parentElement.title = "Needs the server (route planning is not available in the static demo)."; }
     let routeRunning = false;
+    let crew = null; // crew.js, set up below
     const routeLegCache = new Map(); // planned legs, see planSequence
     const routeSmoothBox = document.getElementById("routeSmooth");
     const maxSlopeSlider = document.getElementById("maxSlope");
@@ -3504,6 +3611,7 @@
       if (routeGraphic) viewer.entities.remove(routeGraphic);
       routeGraphic = routeDisplayPath = routeRawPath = routeRawTurns = routeGrid = null;
       routePinPositions = null;
+      crew?.routeCleared();
       for (const pin of routePins) viewer.entities.remove(pin);
       routePins.length = 0;
       for (const layer of unwalkableLayers) viewer.imageryLayers.remove(layer, true);
@@ -3946,14 +4054,27 @@
         let west = ((westUnwrapped + 180) % 360 + 360) % 360 - 180;
         let east = ((eastUnwrapped + 180) % 360 + 360) % 360 - 180;
         if (eastUnwrapped - westUnwrapped >= 359.999) { west = -180; east = 180; }
+        // the great circle between two stops bulges towards the pole: include its latitudes
+        const lats = waypoints.map((p) => p.lat);
+        for (let i = 1; i < waypoints.length; i++) {
+          const r = Math.PI / 180, a = waypoints[i - 1], b = waypoints[i];
+          const va = [Math.cos(a.lat * r) * Math.cos(a.lon * r), Math.cos(a.lat * r) * Math.sin(a.lon * r), Math.sin(a.lat * r)];
+          const vb = [Math.cos(b.lat * r) * Math.cos(b.lon * r), Math.cos(b.lat * r) * Math.sin(b.lon * r), Math.sin(b.lat * r)];
+          const om = Math.acos(Math.max(-1, Math.min(1, va[0] * vb[0] + va[1] * vb[1] + va[2] * vb[2])));
+          if (om < 1e-6 || Math.PI - om < 1e-6) continue;
+          for (let k = 1; k < 32; k++) {
+            const t = k / 32, s0 = Math.sin((1 - t) * om) / Math.sin(om), s1 = Math.sin(t * om) / Math.sin(om);
+            lats.push(Math.asin(Math.max(-1, Math.min(1, s0 * va[2] + s1 * vb[2]))) / r);
+          }
+        }
         const patchBounds = {
           west, east,
-          south: Math.max(-90, Math.min(...waypoints.map((p) => p.lat)) - pad),
-          north: Math.min(90, Math.max(...waypoints.map((p) => p.lat)) + pad),
+          south: Math.max(-90, Math.min(...lats) - pad),
+          north: Math.min(90, Math.max(...lats) + pad),
         };
         // A leg that has not changed (same two stops, slope limit and kind of grid) is not
         // planned again: adding, removing or reordering stops only plans the new legs.
-        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|` +
+        const legKey = (grid, a, b) => `${grid.level}|${grid.heights instanceof Float32Array ? "patch" : "corridor"}|${maxSlopeDeg()}|${routeFastestBox.checked ? "t" : "d"}|` +
           `${a.lon.toFixed(6)},${a.lat.toFixed(6)}|${b.lon.toFixed(6)},${b.lat.toFixed(6)}`;
         const planSequence = async (grid) => {
           const combined = { path: [], displayPath: [], turnIndices: [], waypointPositions: [], horizontalDistanceM: 0, terrainDistanceM: 0 };
@@ -3970,6 +4091,7 @@
             if (leg === undefined) {
               leg = a && b ? await planTerrainRoute(grid, a, b, {
                 maxSlopeDeg: maxSlopeDeg(), shouldCancel: () => request !== routeRequest,
+                ...(routeFastestBox.checked ? { speedAt: (grade) => Survival.walkingSpeed(grade) } : {}),
                 onProgress: ({ expanded }) => { prog.expanded = expanded; },
               }) : null;
               if (request !== routeRequest) return null;          // cancelled: do not cache
@@ -4047,9 +4169,10 @@
         // the route first; the red slope mask is painted afterwards without blocking
         drawUnwalkableOverlay(grid, () => request === routeRequest)
           .catch((error) => console.warn("Could not draw slope mask:", error));
-        if (!result) { setRouteStatus("No walkable route found at this slope limit."); return; }
+        if (!result) { setRouteStatus("No walkable route found at this slope limit."); crew?.routeComputed(false); return; }
         drawRouteLine(grid, routeRawPath, routeRawTurns);
         try { updateSurvival(); } catch (error) { console.warn("Survival budget failed:", error); }
+        crew?.routeComputed(true);
         setRouteStatus(`${routeLoopBox.checked ? "Loop · " : ""}terrain ${(result.terrainDistanceM / 1000).toFixed(2)} km · horizontal ${(result.horizontalDistanceM / 1000).toFixed(2)} km · ${routeRawPath.length.toLocaleString()} samples · ${detail}` +
           (prog.reused ? ` · ${prog.reused} leg${prog.reused === 1 ? "" : "s"} reused` : ""));
       } catch (error) {
@@ -4137,6 +4260,7 @@
       computeTerrainRoute();
     });
     routeLoopBox.addEventListener("change", () => { routeStopsChanged(); });
+    routeFastestBox.addEventListener("change", () => { routeStopsChanged(); });
     maxSlopeSlider.addEventListener("input", () => {
       maxSlopeValue.textContent = `${maxSlopeDeg()}°`;
       updateSlopeMeaning();
@@ -4264,6 +4388,8 @@
         syncRouteAddButton();
         return;
       }
+      const crewHit = viewer.scene.drillPick(e.position, 4).map((p) => p?.id?.properties?.crewId?.getValue?.(Cesium.JulianDate.now())).find(Boolean);
+      if (crewHit && crew) { crew.pick(crewHit); return; }
       const picked = spotsVisible ? viewer.scene.drillPick(e.position, 8) : [];
       const id = picked.map((p) => p?.id?.properties?.spotId?.getValue?.(Cesium.JulianDate.now())).find(Boolean);
       const spot = spotById.get(id);
@@ -4311,6 +4437,29 @@
       showTab(next.dataset.win);
       e.preventDefault();
     });
+
+    // ---------------------------------------------------------------- crew & rovers
+    try {
+      const { initCrew } = await import("./crew.js");
+      crew = initCrew({
+        Cesium, viewer, MARS, sampleTerrainHeights,
+        getRoute: () => (routeRawPath && routePinPositions?.length >= 2
+          ? { path: routeRawPath, stops: routePinPositions, loop: routeLoopBox.checked } : null),
+        visualHeight: (elevationM) => (terrainReady && reliefBox.checked ? elevationM * viewer.scene.verticalExaggeration : 0),
+        onReliefChange: (fn) => reliefHooks.push(fn),
+        viewCentre: () => {
+          const c = MARS.cartesianToCartographic(viewCentre());
+          return c ? { lon: Cesium.Math.toDegrees(c.longitude), lat: Cesium.Math.toDegrees(c.latitude) } : null;
+        },
+        planWithSlope: (deg) => {
+          maxSlopeSlider.value = String(Math.max(5, Math.min(45, Math.round(deg))));
+          maxSlopeSlider.dispatchEvent(new Event("input"));
+          if (routePoints.length < 2) { showTab("winRoute"); setRouteStatus("Add at least two stops (stop 1 = base), then press Calculate route."); return; }
+          computeTerrainRoute();
+        },
+        showCrewTab: () => showTab("winCrew"),
+      });
+    } catch (error) { console.error("Crew panel failed:", error); }
 
     // ---------------------------------------------------------------- cache info
     const cacheInfo = document.getElementById("cacheInfo");

@@ -44,6 +44,7 @@ function yieldToBrowser() {
   if (!yieldChannel && typeof MessageChannel !== "undefined") {
     yieldChannel = new MessageChannel();
     yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
+    yieldChannel.port1.unref?.(); // Node: do not keep the process alive (no-op in browsers)
   }
   if (!yieldChannel) return new Promise((resolve) => setTimeout(resolve, 0));
   return new Promise((resolve) => { yieldQueue.push(resolve); yieldChannel.port2.postMessage(0); });
@@ -110,6 +111,26 @@ async function fetchTiles(level, list, signal, onProgress) {
     done++; report();
     return data;
   }));
+}
+
+// Terrain heights (m, MOLA) at arbitrary points, bilinear inside the 65x65 height tiles.
+// Used for line-of-sight checks; shares the tile cache with the planner.
+export async function sampleTerrainHeights(points, level = 6, signal) {
+  const nx = tileColumns(level), ny = tileRows(level), dLon = 360 / nx, dLat = 180 / ny;
+  const where = points.map(({ lon, lat }) => {
+    const u = ((((lon + 180) % 360) + 360) % 360) / dLon, v = Math.max(0, Math.min(ny - 1e-9, (90 - lat) / dLat));
+    const tx = Math.min(nx - 1, Math.floor(u)), ty = Math.min(ny - 1, Math.floor(v));
+    return { tx, ty, fx: (u - tx) * TILE_CELLS, fy: (v - ty) * TILE_CELLS };
+  });
+  const keys = [...new Set(where.map((w) => `${w.tx},${w.ty}`))];
+  const datas = await Promise.all(keys.map((k) => { const [x, y] = k.split(",").map(Number); return fetchHeightTile(level, x, y, signal); }));
+  const byKey = new Map(keys.map((k, i) => [k, datas[i]]));
+  return where.map(({ tx, ty, fx, fy }) => {
+    const d = byKey.get(`${tx},${ty}`);
+    const c = Math.min(TILE_CELLS - 1, Math.floor(fx)), r = Math.min(TILE_CELLS - 1, Math.floor(fy));
+    const a = fx - c, b = fy - r, k = r * TILE_SAMPLES + c;
+    return (d[k] * (1 - a) + d[k + 1] * a) * (1 - b) + (d[k + TILE_SAMPLES] * (1 - a) + d[k + TILE_SAMPLES + 1] * a) * b;
+  });
 }
 
 // A few recent grids, so asking for the same patch / corridor again costs nothing (and the
@@ -389,7 +410,9 @@ export function terrainCellSlopeDeg(grid, x, y) {
 // Weighted Basic Theta*: any-angle shortcuts are checked against the same cell slope
 // mask as the overlay, while edge grades retain the configured climb limit.
 // Same search, same costs and same tie-breaking as before; only the bookkeeping is faster.
-export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infinity, signal, shouldCancel = () => false, onProgress } = {}) {
+// speedAt (optional): grade (rise/run, uphill positive) -> walking speed in m/s. When given, the
+// planner minimises walking TIME instead of surface distance (e.g. survival.js walkingSpeed).
+export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infinity, signal, shouldCancel = () => false, onProgress, speedAt } = {}) {
   if (!(maxSlopeDeg === Infinity || (Number.isFinite(maxSlopeDeg) && maxSlopeDeg >= 0 && maxSlopeDeg < 90)))
     throw new RangeError("maxSlopeDeg must be between 0 and 90 degrees");
   const { width, height, heights, westDeg, northDeg, lonStepDeg, latStepDeg } = grid;
@@ -414,6 +437,15 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
     return Math.hypot(dLon * MARS_RADIUS_M * Math.cos(midLat), (b.lat - a.lat) * MARS_RADIUS_M);
   };
   const maxSlopeRatio = Math.tan(maxSlopeDeg * RAD);
+  // time mode: the heuristic divides distance by the fastest speed on any allowed grade, so it
+  // stays admissible (never overestimates the remaining time)
+  let vMax = 1;
+  if (speedAt) {
+    vMax = 0;
+    const gMax = Number.isFinite(maxSlopeDeg) ? Math.min(maxSlopeRatio, 3) : 3; // tan(Infinity) is NaN
+    for (let k = -1000; k <= 1000; k++) vMax = Math.max(vMax, speedAt((k / 1000) * gMax));
+    if (!(vMax > 0) || !Number.isFinite(vMax)) throw new RangeError("speedAt must return a positive speed");
+  }
   // great-circle distance to the goal (admissible: never longer than the surface path)
   const goalLat = (northDeg + goal.y * latStepDeg) * RAD, goalLon = (westDeg + goal.x * lonStepDeg) * RAD;
   const cosGoal = Math.cos(goalLat);
@@ -424,7 +456,7 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
     else if (dLon < -Math.PI) dLon += 2 * Math.PI;
     const dLat = goalLat - lat;
     const h = Math.sin(dLat / 2) ** 2 + T.cosRow[y] * cosGoal * Math.sin(dLon / 2) ** 2;
-    return 2 * MARS_RADIUS_M * Math.asin(Math.sqrt(Math.min(1, h)));
+    return 2 * MARS_RADIUS_M * Math.asin(Math.sqrt(Math.min(1, h))) / vMax;
   };
 
   // g, parent and closed per cell, in typed arrays indexed by the grid's cell slot
@@ -475,7 +507,7 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
         if (h === undefined || prevH === undefined) return -1;
         const d = stepM(stepX, prevY, y0 - prevY), rise = Math.abs(h - prevH);
         if (rise > d * maxSlopeRatio) return -1;
-        cost += Math.hypot(d, rise);
+        cost += speedAt ? Math.hypot(d, rise) / speedAt((h - prevH) / d) : Math.hypot(d, rise);
       }
       prevId = id; prevH = h; prevY = y0;
       if (x0 === x1 && y0 === y1) break;
@@ -509,6 +541,16 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
   g[slotOf(startId)] = 0;
   push([heuristic(start.x, start.y), 0, startId]);
   const MX = [-1, 0, 1, -1, 1, -1, 0, 1], MY = [-1, -1, -1, 0, 0, 1, 1, 1];
+  // Shortcuts are straight lines in lon/lat, which on the sphere drift away from the true
+  // shortest (great-circle) line as they get longer. Capping their length makes a long leg a
+  // chain of short straight pieces that can bend with the sphere and follow the great circle.
+  const MAX_SHORTCUT_CELLS = 48;
+  const shortSpan = (fromId, tx, ty) => {
+    const fx = fromId % width;
+    let ddx = Math.abs(tx - fx);
+    if (wrapX && ddx > width / 2) ddx = width - ddx;
+    return ddx <= MAX_SHORTCUT_CELLS && Math.abs(ty - (fromId - fx) / width) <= MAX_SHORTCUT_CELLS;
+  };
   let expanded = 0, sliceStart = performance.now();
   while (heap.length) {
     if (signal?.aborted || shouldCancel()) return null;
@@ -558,15 +600,19 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
         }
       }
       if (!ids.length) ids.push(startId);
-      let horizontalDistanceM = 0;
+      let horizontalDistanceM = 0, surfaceM = 0;
       const path = ids.map((at, i) => {
         const x = at % width, y = Math.floor(at / width);
-        if (i) { const prev = ids[i - 1]; horizontalDistanceM += horizontal(prev % width, Math.floor(prev / width), x, y); }
+        if (i) {
+          const prev = ids[i - 1], dh = horizontal(prev % width, Math.floor(prev / width), x, y);
+          horizontalDistanceM += dh; surfaceM += Math.hypot(dh, heightAt(at) - heightAt(prev));
+        }
         const ll = pos(x, y);
         return { x, y, lon: ll.lon / RAD, lat: ll.lat / RAD, elevationM: heightAt(at) };
       });
       if (!displayPath.length) displayPath.push(path[0]);
-      return { path, displayPath, turnIndices, horizontalDistanceM, terrainDistanceM: currentCost, expanded };
+      return { path, displayPath, turnIndices, horizontalDistanceM, expanded,
+        terrainDistanceM: speedAt ? surfaceM : currentCost, ...(speedAt ? { travelTimeS: currentCost } : {}) };
     }
     closed[sid] = 1;
     const x = id % width, y = (id - x) / width;
@@ -583,7 +629,7 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
       if (nsid < 0 || closed[nsid]) continue;
       if (cellSlope(next) > maxSlopeDeg) continue;
       let via = id, stepCost = segmentCost(id, next);
-      if (parentId !== -1) {
+      if (parentId !== -1 && shortSpan(parentId, nx, ny)) {
         const shortcut = segmentCost(parentId, next);
         if (shortcut >= 0 && parentG + shortcut < currentCost + (stepCost >= 0 ? stepCost : Infinity)) {
           via = parentId; stepCost = shortcut;

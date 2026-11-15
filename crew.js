@@ -1,0 +1,662 @@
+// Crew & rovers: members that walk / drive a planned terrain route, with an ETA from their
+// speed on each slope, oxygen / battery use, the longest safe stay at the destination
+// (returning with the reserve set in Settings), the point of no return, line-of-sight comms
+// to the base, and alerts when someone is out of contact or running low.
+//
+// Everything is a model (no live telemetry exists for this): speeds and consumption rates come
+// from published figures and simple physiology, and every number can be edited per member.
+// Current levels can be typed in at any time, as a stand-in for suit / rover telemetry.
+
+import { SURVIVAL_PARAMS as SP, DEFAULT_CREW, walkingSpeed, metabolicPower } from "./survival.js";
+
+const R_M = 3_396_190, RAD = Math.PI / 180, SOL_H = 24.6597;
+const STORE = "mars-crew-v1", SET_STORE = "mars-crew-settings-v1";
+
+// Presets. Sources: Curiosity ~0.14 km/h top speed, a few tens of m/h on average with hazard
+// stops (NASA/JPL); Perseverance ~0.15 km/h top, AutoNav ~120 m/h; MMRTG power (battery not
+// the limit); pressurized rover concept (NASA SEV): ~10 km/h, multi-day life support.
+// The suited astronaut is NOT modelled here: speed, slope limit, metabolic curve and the
+// default O2 / battery endurance all come from survival.js (SURVIVAL_PARAMS, crew A), so the
+// crew panel and the survival card always give the same numbers for the same walk.
+const SUIT = DEFAULT_CREW[0];
+const round1 = (x) => Math.round(x * 10) / 10;
+export const PRESETS = {
+  astronaut: { label: "Astronaut (suited EVA)", type: "astronaut", speedKmh: SP.v0_kmh, maxSlope: SP.max_slope_deg,
+    o2: true, o2Hours: round1(SUIT.o2_kg * SP.e_o2_j_per_kg / (SP.metabolic_flat_w * SUIT.metabolic_scale) / 3600),
+    battery: true, batteryHours: round1(SUIT.battery_wh / SP.suit_power_w), dutyHours: 24, rtg: false, color: "#4fc3f7" },
+  pressurized: { label: "Pressurized crew rover (concept)", type: "rover", speedKmh: 10, maxSlope: 20,
+    o2: true, o2Hours: 72, battery: true, batteryHours: 12, dutyHours: 24, rtg: false, color: "#ffb74d" },
+  perseverance: { label: "Perseverance (M2020)", type: "rover", speedKmh: 0.12, maxSlope: 30,
+    o2: false, o2Hours: 0, battery: true, batteryHours: 6, dutyHours: 5, rtg: true, color: "#aed581" },
+  curiosity: { label: "Curiosity (MSL)", type: "rover", speedKmh: 0.03, maxSlope: 30,
+    o2: false, o2Hours: 0, battery: true, batteryHours: 6, dutyHours: 4, rtg: true, color: "#ce93d8" },
+};
+
+// ---------------------------------------------------------------- physics model
+function speedMs(m, grade) {
+  const v0 = m.speedKmh / 3.6;
+  if (m.type === "astronaut") // survival.js Tobler curve, with this member's flat speed
+    return walkingSpeed(grade, { ...SP, v0_kmh: m.speedKmh });
+  const deg = Math.atan(Math.abs(grade)) / RAD;   // rovers slow down on slopes
+  return v0 * Math.max(0.25, 1 - 0.6 * deg / Math.max(1, m.maxSlope));
+}
+// percent per hour, moving or resting
+function rates(m, grade, moving) {
+  const up = Math.max(0, grade);
+  let o2 = 0, bat = 0;
+  if (m.type === "astronaut") {
+    // O2 follows metabolic power (survival.js), normalised so flat walking uses a full tank in
+    // o2Hours; resting = sampling work at a stop. The suit battery draw is constant (SP.suit_power_w).
+    const flat = SP.metabolic_flat_w * SUIT.metabolic_scale;
+    const M = moving ? metabolicPower(grade, speedMs(m, grade), SUIT, SP) : SP.metabolic_stop_w;
+    if (m.o2) o2 = (100 / m.o2Hours) * (M / flat);
+    if (m.battery) bat = 100 / m.batteryHours;
+  } else {
+    if (m.o2) o2 = 100 / m.o2Hours;                                    // cabin life support
+    if (m.battery && !m.rtg) bat = (100 / m.batteryHours) * (moving ? 1 + 2 * up : 0.15);
+  }
+  return { o2, bat };
+}
+const segM = (a, b) => {
+  const dLat = (b.lat - a.lat) * RAD, dLon = (b.lon - a.lon) * RAD;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.sin(dLon / 2) ** 2;
+  return 2 * R_M * Math.asin(Math.min(1, Math.sqrt(h)));
+};
+// cumulative moving time (h), distance (m), O2 and battery used (%) along pts
+function profile(m, pts) {
+  const n = pts.length, t = new Float64Array(n), d = new Float64Array(n), o2 = new Float64Array(n), bat = new Float64Array(n);
+  const steep = [];
+  for (let i = 1; i < n; i++) {
+    const a = pts[i - 1], b = pts[i], run = Math.max(0.01, segM(a, b)), grade = (b.e - a.e) / run;
+    if (Math.atan(Math.abs(grade)) / RAD > m.maxSlope + 0.5 && run > 50) steep.push(i);
+    const dt = run / speedMs(m, grade) / 3600, r = rates(m, grade, true);
+    t[i] = t[i - 1] + dt; d[i] = d[i - 1] + run; o2[i] = o2[i - 1] + r.o2 * dt; bat[i] = bat[i - 1] + r.bat * dt;
+  }
+  return { pts, t, d, o2, bat, steep };
+}
+// moving hours -> calendar hours (rovers only drive dutyHours per sol)
+const toCal = (m, h) => m.dutyHours >= 24 ? h : Math.floor(h / m.dutyHours) * SOL_H + (h % m.dutyHours);
+const restRates = (m) => rates(m, 0, false);
+const limiting = (m) => [m.o2 && "o2", m.battery && !m.rtg && "bat"].filter(Boolean);
+
+// The full analysis of a member on their assigned route.
+function analyse(m, reservePct) {
+  const P = m.plan;
+  if (!P?.pts?.length) return null;
+  const n = P.stopIdx.length;
+  const destStop = P.loop ? n - 2 : n - 1;
+  const outEnd = P.stopIdx[Math.max(0, destStop)];
+  const outPts = P.pts.slice(0, outEnd + 1);
+  const retPts = P.loop ? P.pts.slice(outEnd) : outPts.slice().reverse();
+  const F = profile(m, outPts), Rt = profile(m, retPts), Bk = P.loop ? profile(m, outPts.slice().reverse()) : Rt;
+  const N = outPts.length;
+  const backAt = (key, i) => Bk[key][N - 1] - Bk[key][N - 1 - i];   // cost from out index i back to start
+  const lev = { o2: m.o2Pct, bat: m.batteryPct };
+  const rest = restRates(m);
+  const res = limiting(m);
+  let stayMax = Infinity;
+  const end = {};
+  for (const k of res) {
+    const avail = lev[k] - reservePct - F[k][N - 1] - Rt[k].at(-1);
+    stayMax = Math.min(stayMax, rest[k] > 0 ? avail / rest[k] : Infinity);
+  }
+  // point of no return: the furthest point from which backing out still keeps the reserve
+  let pnr = N - 1;
+  for (let i = 0; i < N; i++) {
+    if (res.some((k) => F[k][i] + backAt(k, i) > lev[k] - reservePct)) { pnr = Math.max(0, i - 1); break; }
+  }
+  const stay = Math.max(0, Math.min(stayMax, m.stayH ?? stayMax));
+  const stayUsed = Number.isFinite(stay) ? stay : 0;
+  for (const k of res) end[k] = lev[k] - F[k][N - 1] - Rt[k].at(-1) - rest[k] * stayUsed;
+  const outCal = toCal(m, F.t[N - 1]), retCal = toCal(m, Rt.t.at(-1));
+  const stops = P.stopIdx.slice(0, destStop + 1).map((idx, k) => ({ name: P.stopNames[k], h: toCal(m, F.t[Math.min(idx, N - 1)]), km: F.d[Math.min(idx, N - 1)] / 1000 }));
+  return {
+    F, Rt, Bk, backAt, outCal, retCal, stayMax, stay: stayUsed, stops, pnr, end, res,
+    destName: P.stopNames[Math.max(0, destStop)], outKm: F.d[N - 1] / 1000, retKm: Rt.d.at(-1) / 1000,
+    steep: F.steep.length + (P.loop ? Rt.steep.length : 0),
+    feasible: stayMax >= 0 && !F.steep.length && !(P.loop && Rt.steep.length),
+  };
+}
+
+// Timeline of an EVA: samples { c: calendar h, lon, lat, e, o2, bat, ph } with resources used (%).
+function buildTimeline(m, A) {
+  const out = [];
+  const push = (prof, c0, ph, used0) => {
+    let lastCal = c0;
+    for (let i = 0; i < prof.pts.length; i++) {
+      const p = prof.pts[i];
+      lastCal = c0 + toCal(m, prof.t[i]);
+      out.push({ c: lastCal, lon: p.lon, lat: p.lat, e: p.e, o2: used0.o2 + prof.o2[i], bat: used0.bat + prof.bat[i], ph, i });
+    }
+    return lastCal;
+  };
+  let c = push(A.F, 0, "out", { o2: 0, bat: 0 });
+  const last = out.at(-1), rest = restRates(m);
+  if (A.stay > 0) {
+    out.push({ ...last, c: c + A.stay, o2: last.o2 + rest.o2 * A.stay, bat: last.bat + rest.bat * A.stay, ph: "stay" });
+    c += A.stay;
+  }
+  const s = out.at(-1);
+  push(A.Rt, c, "back", { o2: s.o2, bat: s.bat });
+  return out;
+}
+function sampleAt(tl, c) {
+  if (c <= tl[0].c) return { ...tl[0], ph: "out" };
+  if (c >= tl.at(-1).c) return { ...tl.at(-1), ph: "done" };
+  let lo = 0, hi = tl.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (tl[mid].c <= c) lo = mid; else hi = mid; }
+  const a = tl[lo], b = tl[hi], f = b.c > a.c ? (c - a.c) / (b.c - a.c) : 0;
+  return { c, lon: a.lon + (b.lon - a.lon) * f, lat: a.lat + (b.lat - a.lat) * f, e: a.e + (b.e - a.e) * f,
+    o2: a.o2 + (b.o2 - a.o2) * f, bat: a.bat + (b.bat - a.bat) * f, ph: b.ph === "stay" ? "stay" : a.ph, i: a.i + f };
+}
+
+// ---------------------------------------------------------------- formatting
+const fmtDur = (h) => {
+  if (!Number.isFinite(h)) return "unlimited";
+  if (h < 0) return "—";
+  if (h >= 48) return `${(h / SOL_H).toFixed(1)} sols`;
+  const mins = Math.round(h * 60);
+  return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")}`;
+};
+const fmtKm = (km) => (km >= 10 ? `${km.toFixed(1)} km` : km >= 1 ? `${km.toFixed(2)} km` : `${Math.round(km * 1000)} m`);
+const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------------------------------------------------------------- UI + map
+export function initCrew(api) {
+  const { Cesium, viewer, MARS, sampleTerrainHeights } = api;
+  const $ = (id) => document.getElementById(id);
+  const settings = Object.assign({ reserve: SP.reserve_frac * 100, commsKm: 10, mastM: SP.haven_antenna_m, scale: 60 }, (() => {
+    try { return JSON.parse(localStorage.getItem(SET_STORE) || "{}"); } catch { return {}; }
+  })());
+  let members = [];
+  try { members = JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { members = []; }
+  let selectedId = members[0]?.id ?? null, followId = null, pendingPlanFor = null;
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(members)); } catch { /* full: keep in memory */ } };
+  const saveSettings = () => { try { localStorage.setItem(SET_STORE, JSON.stringify(settings)); } catch { /* ignore */ } };
+  const byId = (id) => members.find((m) => m.id === id);
+  const analyses = new Map(), timelines = new Map(), live = new Map(); // id -> derived state
+  const ents = new Map(); // id -> { marker, path }
+
+  // --- settings controls (Settings tab)
+  const reserveEl = $("crewReserve"), reserveVal = $("crewReserveVal"), commsEl = $("crewComms"), mastEl = $("crewMast"), scaleEl = $("crewScale");
+  reserveEl.value = settings.reserve; commsEl.value = settings.commsKm; mastEl.value = settings.mastM; scaleEl.value = settings.scale;
+  reserveVal.textContent = `${settings.reserve}%`;
+  const onSettings = () => {
+    const now = Date.now();
+    for (const m of members) if (m.eva) { m.eva.c0 = simHours(m, now); m.eva.t0 = now; } // keep the mission clock continuous
+    settings.reserve = Number(reserveEl.value); settings.commsKm = Number(commsEl.value);
+    settings.mastM = Math.max(0, Number(mastEl.value) || 0); settings.scale = Number(scaleEl.value);
+    reserveVal.textContent = `${settings.reserve}%`;
+    saveSettings(); save(); recomputeAll();
+  };
+  for (const el of [reserveEl, commsEl, mastEl, scaleEl]) el.addEventListener("input", onSettings);
+
+  const simHours = (m, now = Date.now()) => m.eva ? m.eva.c0 + (now - m.eva.t0) / 3_600_000 * settings.scale : 0;
+
+  // --- alerts
+  const alertBox = $("crewAlerts"), logEl = $("crewLog");
+  const active = new Map(); // "id|key" -> level
+  let desktop = typeof Notification !== "undefined" && Notification.permission === "granted";
+  function toast(level, text) {
+    const d = document.createElement("div");
+    d.className = `crewToast ${level}`;
+    d.innerHTML = `<b>${level === "danger" ? "⚠ EMERGENCY" : level === "warn" ? "⚠ Warning" : "ℹ"}</b> ${esc(text)}<div class="to">→ sent to all crew &amp; base</div>`;
+    d.addEventListener("click", () => d.remove());
+    alertBox.prepend(d);
+    setTimeout(() => d.remove(), level === "danger" ? 20000 : 9000);
+    const row = document.createElement("div");
+    row.className = `crewLogRow ${level}`;
+    row.textContent = `${clock(Date.now())} · ${text}`;
+    logEl.prepend(row);
+    while (logEl.children.length > 60) logEl.lastChild.remove();
+    if (desktop && level !== "info") try { new Notification(`Mars crew ${level === "danger" ? "EMERGENCY" : "warning"}`, { body: text }); } catch { /* ignore */ }
+  }
+  function raise(m, key, level, text) {
+    const k = `${m.id}|${key}`;
+    if (active.get(k) === level) return;
+    const was = active.get(k);
+    active.set(k, level);
+    if (was !== "danger" || level === "danger") toast(level, `${m.name}: ${text}`);
+  }
+  function clear(m, key, text) {
+    const k = `${m.id}|${key}`;
+    if (!active.has(k)) return;
+    active.delete(k);
+    if (text) toast("info", `${m.name}: ${text}`);
+  }
+  $("crewDesktop").addEventListener("click", async () => {
+    if (typeof Notification === "undefined") return;
+    desktop = (await Notification.requestPermission()) === "granted";
+    $("crewDesktop").textContent = desktop ? "Desktop alerts on" : "Desktop alerts blocked";
+  });
+  if (desktop) $("crewDesktop").textContent = "Desktop alerts on";
+
+  // --- line of sight between two surface points (antenna heights in m), Mars curvature included
+  async function lineOfSight(a, b, hA, hB) {
+    const dist = segM(a, b);
+    if (dist > settings.commsKm * 1000) return { ok: false, why: `out of radio range (${fmtKm(dist / 1000)})`, km: dist / 1000 };
+    const om = dist / R_M, N = Math.max(8, Math.min(96, Math.ceil(dist / 300)));
+    const va = [Math.cos(a.lat * RAD) * Math.cos(a.lon * RAD), Math.cos(a.lat * RAD) * Math.sin(a.lon * RAD), Math.sin(a.lat * RAD)];
+    const vb = [Math.cos(b.lat * RAD) * Math.cos(b.lon * RAD), Math.cos(b.lat * RAD) * Math.sin(b.lon * RAD), Math.sin(b.lat * RAD)];
+    const pts = [];
+    for (let k = 0; k <= N; k++) {
+      const t = k / N;
+      const s0 = om > 1e-9 ? Math.sin((1 - t) * om) / Math.sin(om) : 1 - t, s1 = om > 1e-9 ? Math.sin(t * om) / Math.sin(om) : t;
+      const v = [0, 1, 2].map((j) => s0 * va[j] + s1 * vb[j]);
+      pts.push({ lat: Math.asin(Math.max(-1, Math.min(1, v[2] / Math.hypot(...v)))) / RAD, lon: Math.atan2(v[1], v[0]) / RAD });
+    }
+    let H;
+    try { H = await sampleTerrainHeights(pts, 6); } catch { return { ok: true, why: "terrain unavailable", km: dist / 1000 }; }
+    const ra = R_M + H[0] + hA, rb = R_M + H[N] + hB;
+    const A = [ra, 0], B = [rb * Math.cos(om), rb * Math.sin(om)], BA = [B[0] - A[0], B[1] - A[1]];
+    for (let k = 1; k < N; k++) {
+      const phi = om * k / N, u = [Math.cos(phi), Math.sin(phi)];
+      const den = BA[0] * u[1] - BA[1] * u[0];
+      if (Math.abs(den) < 1e-12) continue;
+      const s = -(A[0] * u[1] - A[1] * u[0]) / den;
+      const r = Math.hypot(A[0] + s * BA[0], A[1] + s * BA[1]);
+      if (R_M + H[k] > r) return { ok: false, why: "terrain blocks line of sight to base", km: dist / 1000, at: pts[k] };
+    }
+    return { ok: true, km: dist / 1000 };
+  }
+  const base = (m) => m.plan?.pts?.[0];
+
+  // comms coverage along the planned outbound path (sampled)
+  async function coverage(m) {
+    const A = analyses.get(m.id);
+    if (!A || !base(m)) return;
+    const pts = A.F.pts, n = Math.min(40, pts.length), lost = [];
+    for (let k = 1; k < n; k++) {
+      const i = Math.round(k / (n - 1) * (pts.length - 1));
+      const r = await lineOfSight(base(m), pts[i], settings.mastM, SP.suit_antenna_m);
+      if (!r.ok) lost.push(A.F.d[i] / 1000);
+    }
+    A.cover = { frac: 1 - lost.length / Math.max(1, n - 1), firstKm: lost[0] };
+    if (selectedId === m.id) renderDetail();
+  }
+
+  // --- derive everything for one member
+  function recompute(m) {
+    const A = analyse(m, settings.reserve);
+    if (A) analyses.set(m.id, A); else analyses.delete(m.id);
+    if (!A) timelines.delete(m.id);
+    else timelines.set(m.id, m.eva?.abortTimeline ?? buildTimeline(m, A));
+    drawEntities(m);
+    if (A) coverage(m);
+  }
+  function recomputeAll() { for (const m of members) recompute(m); renderList(); renderDetail(); }
+
+  // --- map entities
+  const iconCache = new Map();
+  function icon(m) {
+    const key = `${m.type}${m.color}`;
+    if (!iconCache.has(key)) {
+      const glyph = m.type === "astronaut"
+        ? `<circle cx="19" cy="15" r="7.5" fill="#eee"/><rect x="13.5" y="12" width="11" height="6" rx="3" fill="${m.color}"/><path d="M11 30c0-5 3.6-8 8-8s8 3 8 8z" fill="#eee"/>`
+        : `<rect x="9" y="11" width="20" height="10" rx="2.5" fill="#eee"/><rect x="21" y="7" width="2" height="5" fill="#eee"/><circle cx="21.5" cy="6.5" r="2" fill="${m.color}"/><circle cx="12" cy="24" r="3.4" fill="#eee"/><circle cx="19" cy="24" r="3.4" fill="#eee"/><circle cx="26" cy="24" r="3.4" fill="#eee"/>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46"><path d="M19 2C9.6 2 3 8.8 3 17.2 3 28 19 44 19 44s16-16 16-26.8C35 8.8 28.4 2 19 2Z" fill="#171614" fill-opacity=".96" stroke="${m.color}" stroke-width="2.6"/>${glyph}</svg>`;
+      iconCache.set(key, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+    }
+    return iconCache.get(key);
+  }
+  function currentSample(m) {
+    const tl = timelines.get(m.id);
+    if (tl && m.eva) return sampleAt(tl, simHours(m));
+    if (tl) return { ...tl[0], ph: "ready" };
+    return m.home ? { lon: m.home.lon, lat: m.home.lat, e: m.home.e ?? 0, ph: "idle", o2: 0, bat: 0 } : null;
+  }
+  function drawEntities(m) {
+    const old = ents.get(m.id);
+    if (old?.path) viewer.entities.remove(old.path);
+    // the marker is kept (the camera may be following it); only its icon can change
+    if (old) old.marker.billboard.image = icon(m);
+    const marker = old?.marker ?? viewer.entities.add({
+      position: new Cesium.CallbackProperty(() => {
+        const s = live.get(m.id)?.s ?? currentSample(m);
+        return s ? Cesium.Cartesian3.fromDegrees(s.lon, s.lat, api.visualHeight(s.e) + 4, MARS) : undefined;
+      }, false),
+      billboard: {
+        image: icon(m), width: 34, height: 41, verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        scaleByDistance: new Cesium.NearFarScalar(2_000, 1.0, 4_000_000, 0.6),
+      },
+      label: {
+        text: new Cesium.CallbackProperty(() => live.get(m.id)?.label ?? m.name, false),
+        font: "600 12px system-ui, sans-serif", fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.TOP, pixelOffset: new Cesium.Cartesian2(0, 4),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3_000_000),
+      },
+      viewFrom: new Cesium.Cartesian3(-1800, -1800, 1600), // Follow: camera offset (m)
+      properties: { crewId: m.id },
+    });
+    let path = null;
+    const tl = timelines.get(m.id);
+    if (tl && tl.length > 1) {
+      const step = Math.max(1, Math.floor(tl.length / 3000));
+      const positions = [];
+      for (let i = 0; i < tl.length; i += step) positions.push(Cesium.Cartesian3.fromDegrees(tl[i].lon, tl[i].lat, api.visualHeight(tl[i].e) + 12, MARS));
+      const lastP = tl.at(-1);
+      positions.push(Cesium.Cartesian3.fromDegrees(lastP.lon, lastP.lat, api.visualHeight(lastP.e) + 12, MARS));
+      const col = Cesium.Color.fromCssColorString(m.color);
+      path = viewer.entities.add({
+        polyline: {
+          positions, width: 3, arcType: Cesium.ArcType.NONE,
+          material: new Cesium.PolylineDashMaterialProperty({ color: col, gapColor: col.withAlpha(0.15), dashLength: 18 }),
+          depthFailMaterial: new Cesium.PolylineDashMaterialProperty({ color: col.withAlpha(0.45), dashLength: 18 }),
+        },
+        properties: { crewId: m.id },
+      });
+    }
+    ents.set(m.id, { marker, path });
+  }
+  api.onReliefChange?.(() => { for (const m of members) drawEntities(m); });
+
+  // --- list and detail UI
+  const listEl = $("crewList"), detailEl = $("crewDetail");
+  const bar = (label, pct, reserve) => `<div class="crewBar"><span>${label}</span><span class="track"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%" class="${pct <= reserve ? "low" : pct <= reserve + 10 ? "mid" : ""}"></i><b style="left:${reserve}%"></b></span><span class="v">${Math.max(0, pct).toFixed(0)}%</span></div>`;
+  function levels(m) {
+    const s = live.get(m.id)?.s;
+    const adj = m.eva?.adj ?? { o2: 0, bat: 0 };
+    const used = m.eva && s ? s : { o2: 0, bat: 0 };
+    return { o2: m.o2Pct - used.o2 + adj.o2, bat: m.rtg ? m.batteryPct : m.batteryPct - used.bat + adj.bat };
+  }
+  function statusText(m) {
+    const L = live.get(m.id), A = analyses.get(m.id);
+    if (!A) return "No route assigned";
+    if (!m.eva) return A.feasible ? `Ready · ${fmtDur(A.outCal)} to ${A.destName}` : (A.stayMax < 0 ? "Cannot return with reserve" : "Route too steep for this member");
+    const s = L?.s;
+    if (!s) return "";
+    const remaining = timelines.get(m.id).at(-1).c - s.c;
+    if (s.ph === "done") return "Back at base ✓";
+    const phase = s.ph === "out" ? `→ ${A.destName}` : s.ph === "stay" ? `At ${A.destName}` : "Returning";
+    const destC = timelines.get(m.id).find((p) => p.ph !== "out")?.c ?? 0;
+    const eta = s.ph === "out" ? ` · ETA ${clock(Date.now() + (destC - s.c) / settings.scale * 3_600_000)}` : "";
+    return `${phase}${eta} · home in ${fmtDur(remaining)} (mission time)`;
+  }
+  function renderList() {
+    listEl.replaceChildren(...members.map((m) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = `crewRow${m.id === selectedId ? " on" : ""}`;
+      row.style.setProperty("--k", m.color);
+      row.dataset.id = m.id;
+      row.innerHTML = `<div class="crewTop"><i></i><b>${esc(m.name)}</b><em>${m.type === "astronaut" ? "Astronaut" : "Rover"}</em>${followId === m.id ? '<span class="fol">following</span>' : ""}</div>` +
+        `<div class="crewStat"></div><div class="crewBars"></div>`;
+      row.addEventListener("click", () => select(m.id));
+      return row;
+    }));
+    $("crewEmpty").hidden = members.length > 0;
+    refreshLive();
+  }
+  function refreshLive() {
+    for (const row of listEl.children) {
+      const m = byId(row.dataset.id);
+      if (!m) continue;
+      const L = levels(m);
+      row.querySelector(".crewStat").textContent = statusText(m);
+      row.querySelector(".crewBars").innerHTML = (m.o2 ? bar("O₂", L.o2, settings.reserve) : "") +
+        (m.battery ? (m.rtg ? `<div class="crewBar"><span>Power</span><span class="rtg">RTG · not limiting</span></div>` : bar("Batt", L.bat, settings.reserve)) : "");
+      const ac = [...active.entries()].filter(([k]) => k.startsWith(`${m.id}|`)).map(([, v]) => v);
+      row.classList.toggle("danger", ac.includes("danger"));
+      row.classList.toggle("warn", !ac.includes("danger") && ac.includes("warn"));
+    }
+  }
+  const num = (label, key, m, attrs = "") => `<label class="crewF">${label}<input data-k="${key}" type="number" value="${m[key]}" ${attrs} /></label>`;
+  function renderDetail() {
+    const m = byId(selectedId);
+    detailEl.hidden = !m;
+    if (!m) return;
+    const A = analyses.get(m.id), route = api.getRoute();
+    const res = settings.reserve;
+    let report = "";
+    if (A) {
+      const ok = A.feasible;
+      report = `<div class="crewVerdict ${ok ? "ok" : "bad"}">${ok ? "✓ Can go and come back" : "✗ Not safe as planned"}` +
+        `${!ok && A.steep ? ` · ${A.steep} stretch${A.steep === 1 ? "" : "es"} steeper than ${m.maxSlope}°` : ""}` +
+        `${!ok && A.stayMax < 0 ? ` · ${A.res.map((k) => (k === "o2" ? "oxygen" : "battery")).join("/")} runs below ${res}% before getting back` : ""}</div>` +
+        `<table class="crewTab">` +
+        `<tr><td>Out to ${esc(A.destName)}</td><td>${fmtKm(A.outKm)} · ${fmtDur(A.outCal)}</td></tr>` +
+        A.stops.slice(1, -1).map((s) => `<tr class="minor"><td>· ${esc(s.name)}</td><td>${fmtKm(s.km)} · +${fmtDur(s.h)}</td></tr>`).join("") +
+        `<tr><td>Max stay there</td><td>${A.res.length ? fmtDur(A.stayMax) : "unlimited"}${A.res.length && Number.isFinite(A.stayMax) ? ` (back with ${res}%)` : ""}</td></tr>` +
+        `<tr><td>Planned stay</td><td>${fmtDur(A.stay)}</td></tr>` +
+        `<tr><td>Back to base</td><td>${fmtKm(A.retKm)} · ${fmtDur(A.retCal)}</td></tr>` +
+        `<tr><td>Whole trip</td><td>${fmtDur(A.outCal + A.stay + A.retCal)}</td></tr>` +
+        (A.res.length ? `<tr><td>Left at the end</td><td>${A.res.map((k) => `${k === "o2" ? "O₂" : "batt"} ${A.end[k].toFixed(0)}%`).join(" · ")}</td></tr>` : "") +
+        (A.res.length ? `<tr><td>Point of no return</td><td>${A.pnr >= A.F.pts.length - 1 ? "beyond the destination" : `${fmtKm(A.F.d[A.pnr] / 1000)} out (${fmtDur(toCal(m, A.F.t[A.pnr]))})`}</td></tr>` : "") +
+        `<tr><td>Comms with base</td><td>${A.cover ? (A.cover.frac >= 0.999 ? "line of sight all the way" : `${Math.round(A.cover.frac * 100)}% of the way · lost from ~${fmtKm(A.cover.firstKm)}`) : "checking…"}</td></tr>` +
+        `</table>`;
+    } else report = `<div class="hint">Plan a route in the Path tab (stop 1 = base), then press <b>Assign current route</b>, or use <b>Plan with my limits</b>.</div>`;
+    const presetOpts = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}" ${m.preset === k ? "selected" : ""}>${p.label}</option>`).join("");
+    detailEl.innerHTML =
+      `<div class="crewHead"><input data-k="name" value="${esc(m.name)}" maxlength="40" aria-label="Name" /><input data-k="color" type="color" value="${m.color}" aria-label="Colour" /></div>` +
+      `<label class="crewF wide">Type<select data-k="preset">${presetOpts}</select></label>` +
+      `<div class="crewGrid">` +
+      num(m.type === "astronaut" ? "Walk speed, flat (km/h)" : "Average speed (km/h)", "speedKmh", m, 'step="0.01" min="0.001"') +
+      num("Max slope (°)", "maxSlope", m, 'min="1" max="45"') +
+      (m.o2 ? num("O₂ now (%)", "o2Pct", m, 'min="0" max="100"') + num("O₂ full lasts (h)", "o2Hours", m, 'step="0.5" min="0.5"') : "") +
+      (m.battery && !m.rtg ? num("Battery now (%)", "batteryPct", m, 'min="0" max="100"') + num("Battery lasts (h)", "batteryHours", m, 'step="0.5" min="0.5"') : "") +
+      (m.type !== "astronaut" ? num("Driving h per sol", "dutyHours", m, 'step="0.5" min="0.5" max="24"') : "") +
+      `<label class="crewF">Stay (h, empty = max)<input data-k="stayH" type="number" step="0.25" min="0" value="${m.stayH ?? ""}" /></label>` +
+      `</div>` +
+      report +
+      `<div class="crewBtns">` +
+      `<button type="button" data-act="assign" ${route ? "" : "disabled"} title="Give this member the route drawn in the Path tab">Assign current route</button>` +
+      `<button type="button" data-act="plan" title="Re-plan the Path tab's stops with this member's slope limit, then assign it">Plan with my limits (${m.maxSlope}°)</button>` +
+      `</div><div class="crewBtns">` +
+      (m.eva ? `<button type="button" data-act="abort" class="warnBtn">Return now</button><button type="button" data-act="stop">End EVA</button>`
+        : `<button type="button" data-act="start" class="primary" ${A ? "" : "disabled"}>Start EVA</button>`) +
+      `<button type="button" data-act="follow">${followId === m.id ? "Stop following" : "Follow"}</button>` +
+      `<button type="button" data-act="fly">Fly to</button>` +
+      `<button type="button" data-act="del" class="danger">Remove</button></div>` +
+      (m.eva ? `<div class="hint">Telemetry: type the real O₂ / battery level above at any time; the model continues from it.</div>` : "");
+  }
+  detailEl.addEventListener("change", (e) => {
+    const m = byId(selectedId), k = e.target.dataset.k;
+    if (!m || !k) return;
+    let v = e.target.value;
+    if (k === "preset") {
+      const p = PRESETS[v];
+      Object.assign(m, { preset: v, type: p.type, speedKmh: p.speedKmh, maxSlope: p.maxSlope, o2: p.o2, o2Hours: p.o2Hours,
+        battery: p.battery, batteryHours: p.batteryHours, dutyHours: p.dutyHours, rtg: p.rtg });
+      iconCache.clear();
+    } else if (k === "name") m.name = v.trim() || m.name;
+    else if (k === "color") { m.color = v; }
+    else if (k === "stayH") m.stayH = v === "" ? null : Math.max(0, Number(v));
+    else if ((k === "o2Pct" || k === "batteryPct") && m.eva) {
+      // live telemetry while out: shift the model so "now" equals the typed value
+      const key = k === "o2Pct" ? "o2" : "bat";
+      const L = levels(m);
+      m.eva.adj[key] += Math.max(0, Math.min(100, Number(v))) - L[key];
+      e.target.value = m[k];
+    } else {
+      v = Number(v);
+      if (!Number.isFinite(v)) return;
+      if (k === "o2Pct" || k === "batteryPct") v = Math.max(0, Math.min(100, v));
+      m[k] = v;
+    }
+    save(); recompute(m); renderList(); renderDetail();
+  });
+  detailEl.addEventListener("click", async (e) => {
+    const act = e.target.dataset?.act, m = byId(selectedId);
+    if (!act || !m) return;
+    if (act === "assign") assignRoute(m);
+    else if (act === "plan") { pendingPlanFor = m.id; api.planWithSlope(m.maxSlope); }
+    else if (act === "start") {
+      m.eva = { t0: Date.now(), c0: 0, adj: { o2: 0, bat: 0 } };
+      toast("info", `${m.name}: EVA started towards ${analyses.get(m.id)?.destName}.`);
+      save(); recompute(m);
+    } else if (act === "abort") abortReturn(m);
+    else if (act === "stop") { m.eva = null; for (const k of [...active.keys()]) if (k.startsWith(`${m.id}|`)) active.delete(k); save(); recompute(m); }
+    else if (act === "follow") follow(followId === m.id ? null : m.id);
+    else if (act === "fly") { const s = live.get(m.id)?.s ?? currentSample(m); if (s) viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 9000, MARS), duration: 1.2 }); }
+    else if (act === "del") {
+      if (!confirm(`Remove ${m.name}?`)) return;
+      const en = ents.get(m.id);
+      if (en) { viewer.entities.remove(en.marker); if (en.path) viewer.entities.remove(en.path); }
+      if (followId === m.id) follow(null);
+      members = members.filter((x) => x !== m); selectedId = members[0]?.id ?? null; save();
+    }
+    renderList(); renderDetail();
+  });
+  // "Return now": head straight back along the way out, from where the member is
+  function abortReturn(m) {
+    const A = analyses.get(m.id), tl = timelines.get(m.id), s = live.get(m.id)?.s;
+    if (!A || !tl || !s || s.ph === "done") return;
+    const now = simHours(m);
+    const kept = tl.filter((p) => p.c <= now);
+    kept.push({ ...s, c: now });
+    if (s.ph === "out") {
+      const i = Math.min(A.F.pts.length - 1, Math.floor(s.i));
+      const back = profile(m, A.F.pts.slice(0, i + 1).reverse());
+      for (let k = 1; k < back.pts.length; k++) {
+        const p = back.pts[k];
+        kept.push({ c: now + toCal(m, back.t[k]), lon: p.lon, lat: p.lat, e: p.e, o2: s.o2 + back.o2[k], bat: s.bat + back.bat[k], ph: "back", i: k });
+      }
+    } else {
+      const rest = tl.filter((p) => p.c > now && p.ph === "back");
+      const shift = s.ph === "stay" ? (tl.find((p) => p.ph === "back")?.c ?? now) - now : 0;
+      const usedShift = s.ph === "stay" ? { o2: (tl.find((p) => p.ph === "back")?.o2 ?? s.o2) - s.o2, bat: (tl.find((p) => p.ph === "back")?.bat ?? s.bat) - s.bat } : { o2: 0, bat: 0 };
+      for (const p of rest) kept.push({ ...p, c: p.c - shift, o2: p.o2 - usedShift.o2, bat: p.bat - usedShift.bat });
+    }
+    m.eva.abortTimeline = kept;
+    timelines.set(m.id, kept);
+    toast("warn", `${m.name}: ordered back to base, ${fmtDur(kept.at(-1).c - now)} away.`);
+    drawEntities(m);
+  }
+  function follow(id) {
+    followId = id;
+    viewer.trackedEntity = id ? ents.get(id)?.marker : undefined;
+    renderList(); renderDetail();
+  }
+
+  function assignRoute(m) {
+    const r = api.getRoute();
+    if (!r) return;
+    // keep at most ~4000 samples (storage); always keep the stops themselves
+    let raw = r.path;
+    if (raw.length < 2) raw = r.stops.map((s) => ({ lon: s.lon, lat: s.lat, elevationM: r.path[0]?.elevationM ?? 0 })); // stops in one cell
+    const step = Math.max(1, Math.ceil(raw.length / 4000));
+    const keepIdx = new Set();
+    let from = 0;
+    const stopsRaw = r.stops.map((s, k) => {
+      let best = from, bd = Infinity;
+      const last = k === r.stops.length - 1;
+      for (let i = from; i < raw.length; i++) {
+        const d = (raw[i].lon - s.lon) ** 2 + (raw[i].lat - s.lat) ** 2;
+        if (d < bd) { bd = d; best = i; }
+        else if (!last && d > bd * 4 + 1e-6 && bd < 1e-6) break;
+      }
+      if (last) best = raw.length - 1;
+      from = best;
+      keepIdx.add(best);
+      return best;
+    });
+    const idx = [];
+    for (let i = 0; i < raw.length; i++) if (i % step === 0 || keepIdx.has(i) || i === raw.length - 1) idx.push(i);
+    const pos = new Map(idx.map((v, k) => [v, k]));
+    m.plan = {
+      pts: idx.map((i) => ({ lon: raw[i].lon, lat: raw[i].lat, e: raw[i].elevationM ?? 0 })),
+      stopIdx: stopsRaw.map((i) => pos.get(i)), stopNames: r.stops.map((s, k) => s.name || `Stop ${k + 1}`), loop: r.loop,
+    };
+    m.eva = null;
+    save(); recompute(m); renderList(); renderDetail();
+    toast("info", `${m.name}: route assigned (${r.stops.length} stops${r.loop ? ", back to start" : ""}).`);
+  }
+
+  function select(id) {
+    selectedId = id;
+    renderList(); renderDetail();
+  }
+  function addMember(preset) {
+    const p = PRESETS[preset];
+    const used = new Set(members.map((m) => m.color));
+    const palette = ["#4fc3f7", "#ffb74d", "#aed581", "#ce93d8", "#f06292", "#fff176", "#80cbc4", "#ff8a65"];
+    const color = used.has(p.color) ? palette.find((c) => !used.has(c)) ?? p.color : p.color;
+    const n = members.filter((m) => m.type === p.type).length + 1;
+    const c = api.viewCentre();
+    const m = {
+      id: `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      name: p.type === "astronaut" ? `Astronaut ${n}` : `${p.label.split(" (")[0]} ${n}`,
+      preset, type: p.type, color, speedKmh: p.speedKmh, maxSlope: p.maxSlope,
+      o2: p.o2, o2Hours: p.o2Hours, o2Pct: 100, battery: p.battery, batteryHours: p.batteryHours, batteryPct: 100,
+      dutyHours: p.dutyHours, rtg: p.rtg, stayH: null, plan: null, eva: null, home: c,
+    };
+    members.push(m);
+    selectedId = m.id;
+    save(); recompute(m); renderList(); renderDetail();
+    if (c) sampleTerrainHeights([c], 6).then(([e]) => { m.home.e = e; save(); }).catch(() => {});
+  }
+  $("crewAddAstro").addEventListener("click", () => addMember("astronaut"));
+  $("crewAddRover").addEventListener("click", () => addMember($("crewRoverKind").value));
+
+  // --- the live loop: positions, levels, alerts (1 Hz), comms (every 4 s)
+  let commsBusy = false, lastComms = 0;
+  function tick() {
+    const now = Date.now();
+    for (const m of members) {
+      const tl = timelines.get(m.id), A = analyses.get(m.id);
+      if (!m.eva || !tl || !A) { live.set(m.id, { s: null, label: m.name }); continue; }
+      const s = sampleAt(tl, simHours(m, now));
+      live.set(m.id, { s, label: "" });
+      const L = levels(m), res = settings.reserve;
+      const destC = tl.find((p) => p.ph !== "out")?.c ?? 0;
+      live.get(m.id).label = s.ph === "done" ? `${m.name} · home` :
+        s.ph === "out" ? `${m.name} · ETA ${clock(now + (destC - s.c) / settings.scale * 3_600_000)}` :
+        s.ph === "stay" ? `${m.name} · at ${A.destName}` : `${m.name} · back ${clock(now + (tl.at(-1).c - s.c) / settings.scale * 3_600_000)}`;
+      for (const k of A.res) {
+        const name = k === "o2" ? "oxygen" : "battery", v = L[k];
+        if (s.ph === "done") { clear(m, `low-${k}`); clear(m, `turn-${k}`); continue; } // safe at base
+        if (v <= res / 2) raise(m, `low-${k}`, "danger", `${name} critical at ${v.toFixed(0)}%. Immediate rescue needed.`);
+        else if (v < res - 0.5) raise(m, `low-${k}`, "danger", `${name} below the ${res}% reserve (${v.toFixed(0)}%).`);
+        else clear(m, `low-${k}`);
+        // can they still get back with the reserve from here?
+        const need = s.ph === "back" ? tl.at(-1)[k] - s[k]
+          : s.ph === "stay" ? A.Rt[k].at(-1)
+          : A.backAt(k, Math.min(A.F.pts.length - 1, Math.floor(s.i)));
+        const verb = s.ph === "back" ? "keep going, no stops" : s.ph === "stay" ? "leave NOW" : "turn back NOW";
+        if (v - need < 0) raise(m, `turn-${k}`, "danger", `will NOT make it home: ${name} runs out ${(need - v).toFixed(0)}% short. Send help.`);
+        else if (v - need <= res) raise(m, `turn-${k}`, "danger", `must ${verb}: ${name} only just covers the way home.`);
+        else if (s.ph !== "back" && v - need <= res + 5) raise(m, `turn-${k}`, "warn", `close to the point of no return (${name}).`);
+        else clear(m, `turn-${k}`);
+      }
+      if (s.ph === "stay") raise(m, "arrived", "info", `arrived at ${A.destName}.`);
+      if (s.ph === "done") raise(m, "home", "info", "back at base.");
+    }
+    if (!commsBusy && now - lastComms > 4000) {
+      commsBusy = true; lastComms = now;
+      (async () => {
+        for (const m of members) {
+          const s = live.get(m.id)?.s;
+          if (!m.eva || !s || !base(m)) continue;
+          if (s.ph === "done") { clear(m, "comms"); continue; }
+          const r = await lineOfSight(base(m), s, settings.mastM, SP.suit_antenna_m);
+          live.get(m.id).comms = r;
+          if (!r.ok) raise(m, "comms", "warn", `communication with base lost: ${r.why}.`);
+          else clear(m, "comms", "communication with base restored.");
+        }
+      })().finally(() => { commsBusy = false; });
+    }
+    refreshLive();
+    viewer.scene.requestRender?.();
+  }
+  setInterval(tick, 1000);
+
+  // initial
+  for (const m of members) recompute(m);
+  renderList(); renderDetail();
+  tick();
+
+  return {
+    // a map pick on a crew marker or path
+    pick(id) { select(id); api.showCrewTab(); },
+    // called after the Path tab finished a route
+    routeComputed(ok) {
+      if (pendingPlanFor && ok) { const m = byId(pendingPlanFor); if (m) assignRoute(m); }
+      pendingPlanFor = null;
+      renderDetail();
+    },
+    routeCleared() { renderDetail(); },
+  };
+}
