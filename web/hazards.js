@@ -39,14 +39,14 @@ export const HAZARD_LAYERS = Object.freeze({
   softDust: {
     dataset: "TES_Thermal_Inertia", level: 1,
     id: "softDust", label: "soft dust (low thermal inertia)", lowIsBad: true,
-    source: "MGS TES global thermal inertia, via NASA Trek (relative index decoded from map colours)",
+    source: "TES thermal inertia (Putzig et al. 2005) via NASA Trek, orbital ~3 km/px served at ~21 km/px; qualitative (decoded from map colours)",
     // low thermal inertia = loose fine dust / sand that can bog down a rover or a walker
     blockBelow: indexFromTi(HAZARD_DEFAULTS.softBlockTi), slowBelow: indexFromTi(HAZARD_DEFAULTS.softSlowTi), slowMax: HAZARD_DEFAULTS.softSlowMax,
   },
   dustCover: {
     dataset: "TES_Dust", level: 1,
     id: "dustCover", label: "dust-covered surface", lowIsBad: false,
-    source: "MGS TES global dust map, via NASA Trek (relative index decoded from map colours)",
+    source: "TES dust cover index (Ruff & Christensen 2002) via NASA Trek, ~21 km/px; qualitative (decoded from map colours)",
     // dusty ground: poor footing, dust on suits and panels; never blocks, only costs more
     slowAbove: HAZARD_DEFAULTS.dustSlowAbove / 100, slowMax: HAZARD_DEFAULTS.dustSlowMax,
   },
