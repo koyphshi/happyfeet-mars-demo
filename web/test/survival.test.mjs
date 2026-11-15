@@ -79,3 +79,42 @@ test("line of sight: a wall between haven and walker creates a blackout warning"
   assert.ok(r.blackout.length >= 1);
   assert.ok(r.warnings.some((w) => w.code === "blackout"));
 });
+
+// ---- environment (temperature) and densified pricing (added for agent:ahmed, #29) ----
+import { environmentCheck } from "../survival.js";
+
+test("environment: ground hotter than the suit limit refuses, colder only warns", () => {
+  const p = line(3);
+  const stops = [{ name: "Ridge crest", index: 30 }, { name: "Hollow floor", index: 60 }];
+  const hot = evaluateRoute(p, stops, { environment: { groundMinC: -84, groundMaxC: 4, suitMinC: -129, suitMaxC: 0, source: "REMS sol 4995" } });
+  assert.equal(hot.feasible, false);
+  assert.match(hot.verdict, /^REFUSED — Too hot for the suit: ground -84…4 °C \(REMS sol 4995\), suit limit 0 °C\./);
+  const cold = evaluateRoute(p, stops, { environment: { groundMinC: -84, groundMaxC: 4, suitMinC: -60, suitMaxC: 39 } });
+  assert.equal(cold.feasible, true);
+  assert.ok(cold.warnings.some((w) => w.code === "temperature_cold" && w.level === "warn"));
+  const ok = evaluateRoute(p, stops, { environment: { groundMinC: -84, groundMaxC: 4, suitMinC: -129, suitMaxC: 39 } });
+  assert.equal(ok.warnings.filter((w) => /temperature/.test(w.code)).length, 0);
+  assert.equal(environmentCheck(null), null);
+  assert.equal(environmentCheck({ groundMaxC: undefined, suitMaxC: 0 }), null); // missing data is not a refusal
+});
+
+test("densify: bumps inside a long segment cost time that end-to-end pricing misses", () => {
+  const lat = -4.787, lon0 = 137.393, dLon = 3000 / (3_396_190 * Math.cos(lat * Math.PI / 180)) * 180 / Math.PI;
+  const p = [{ lon: lon0, lat, elevationM: 0 }, { lon: lon0 + dLon, lat, elevationM: 0 }]; // one 3 km segment, flat end to end
+  const bumpy = (lon) => 40 * Math.sin(((lon - lon0) / dLon) * Math.PI * 6);       // ±40 m hills inside it
+  const coarse = segmentsOf(p)[0], fine = segmentsOf(p, undefined, { heightAt: (lon) => bumpy(lon) })[0];
+  assert.equal(coarse.pieces.length, 1);
+  assert.equal(fine.pieces.length, 30);
+  assert.ok(fine.t > coarse.t * 1.05, `densified ${fine.t} vs ${coarse.t}`);
+  assert.ok(fine.slopeDeg > coarse.slopeDeg);
+  const r0 = evaluateRoute(p, []), r1 = evaluateRoute(p, [], { heightAt: (lon) => bumpy(lon) });
+  assert.ok(r1.eta_s > r0.eta_s);
+  assert.ok(r1.crew[1].used.o2_kg > r0.crew[1].used.o2_kg);
+});
+
+test("densify keeps indices on the original path (route.json / VR stay valid)", () => {
+  const p = line(3, 30, 7);
+  const r = evaluateRoute(p, [{ name: "Turn", index: 6 }], { heightAt: (lon, lat) => -4000 + 5 * Math.sin(lon * 1e4) });
+  assert.equal(r.timeline[1].index, 6);
+  for (const c of r.crew) assert.ok(c.walk_back.index <= 6);
+});

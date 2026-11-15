@@ -67,12 +67,12 @@ export function stopIndices(path, waypoints) {
 
 // Build the route.json object.
 //   path: [{lon, lat, elevationM}]  waypoints: [{name, lon, lat, kind?}] (first = haven)
-export function buildRoute({ path, waypoints, grid = null, heightAt = null, crew = DEFAULT_CREW, params = {}, scenario = "standard", meta = {} }) {
+export function buildRoute({ path, waypoints, grid = null, heightAt = null, crew = DEFAULT_CREW, params = {}, scenario = "standard", environment = null, meta = {} }) {
   const sampler = heightAt || gridHeightSampler(grid);
   const idx = stopIndices(path, waypoints);
   const stops = waypoints.slice(1).map((w, k) => ({ name: w.name ?? `Stop ${k + 1}`, index: idx[k + 1], ...(w.role === "haven" ? { dwell_s: 0 } : {}) }));
   const visible = commsVisibility(path, sampler, { ...SURVIVAL_PARAMS, ...params });
-  const survival = evaluateRoute(path, stops, { crew, params, visible });
+  const survival = evaluateRoute(path, stops, { crew, params, visible, heightAt: sampler, environment });
   const source = grid?.source ?? meta.terrain_source ?? "unknown";
   return {
     schema: ROUTE_SCHEMA,
