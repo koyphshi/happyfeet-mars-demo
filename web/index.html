@@ -585,11 +585,11 @@
         <div class="setRow">
           <span>Behind planet</span>
           <select id="pinBehind" title="Pins on the far side of Mars (or behind hills when tilted)">
-            <option value="faded" selected>Show, faded</option>
-            <option value="hidden">Hide</option>
+            <option value="hidden" selected>Hide</option>
+            <option value="faded">Show, faded</option>
           </select>
         </div>
-        <div class="setNote">Far out, pins hide so the planet stays clear. Small named features (craters…) appear only closer, in proportion to their size. A selected spot always stays visible.</div>
+        <div class="setNote">Pins on the far side of Mars are hidden — you only see spots on the surface in front of you. Small named features (craters…) appear only closer, in proportion to their size.</div>
 
         <div class="sub">Crew &amp; EVA</div>
         <div class="setRow">
@@ -2003,9 +2003,10 @@
       for (const [id, e] of spotEntities) e.billboard.distanceDisplayCondition = pinCondition(spotById.get(id));
     }
     // Pins behind the planet: "faded" draws them through Mars at 35% opacity (and pins behind
-    // hills when tilted stay visible too); "hidden" lets the planet and terrain cover them.
-    // Settings > Map spots > Behind the planet.
-    let pinsBehind = "faded";
+    // hills when tilted stay visible too); "hidden" removes them outright, so a pin is only
+    // seen when it sits on the surface in front of the camera.
+    // Settings > Map spots > Behind planet.
+    let pinsBehind = "hidden";
     const pinDepthOff = () => (pinsBehind === "faded" ? Number.POSITIVE_INFINITY : 50_000);
     const pinOccluder = new Cesium.EllipsoidalOccluder(MARS, Cesium.Cartesian3.ZERO);
     const PIN_SOLID = Cesium.Color.WHITE, PIN_FADED = new Cesium.Color(1, 1, 1, 0.35);
@@ -2014,8 +2015,23 @@
       pinOccluder.cameraPosition = viewer.camera.positionWC;
       for (const [id, e] of spotEntities) {
         if (!e.show) continue;
-        const behind = pinsBehind === "faded" && !pinOccluder.isPointVisible(pinWorld.get(id));
-        if (e._behind !== behind) { e._behind = behind; e.billboard.color = behind ? PIN_FADED : PIN_SOLID; }
+        // Is the planet in the way? Then the pin is on the far side and must not be drawn.
+        const behind = !pinOccluder.isPointVisible(pinWorld.get(id));
+        if (pinsBehind === "hidden") {
+          if (e._behind !== behind) {
+            e._behind = behind;
+            e.billboard.show = !behind;
+            if (behind) e.label.show = false;
+            else if (selectedSpot?.id === id) e.label.show = true;
+          }
+        } else {
+          const faded = pinsBehind === "faded" && behind;
+          if (e._behind !== faded) {
+            e._behind = faded;
+            e.billboard.color = faded ? PIN_FADED : PIN_SOLID;
+            e.billboard.show = true;
+          }
+        }
       }
     }
     function setPinsBehind(mode) {
