@@ -120,8 +120,17 @@ export function segmentsOf(path, p = SURVIVAL_PARAMS, opts = {}) {
       const v = walkingSpeed(grade, p);
       pieces.push({ d: pd, grade });
       t += pd / v;
-      steepest = Math.max(steepest, Math.abs(grade));
     }
+    // Slope mask on ONE surface: a vertex's stored height can come from a coarser cell than the sampler
+    // (e.g. a stop snapped to a 2.6 km MOLA cell), so mixing the two in the first / last piece would show
+    // an artificial cliff. Pricing above keeps the stored endpoint heights (reference numbers unchanged).
+    const zs = z.slice();
+    if (heightAt && n > 1) {
+      const ha = heightAt(a.lon, a.lat), hb = heightAt(b.lon, b.lat);
+      if (Number.isFinite(ha)) zs[0] = ha;
+      if (Number.isFinite(hb)) zs[n] = hb;
+    }
+    for (let k = 1; k <= n; k++) steepest = Math.max(steepest, Math.abs((zs[k] - zs[k - 1]) / (d / n)));
     const grade = (zb - za) / d;
     segs.push({ i, d, grade, slopeDeg: Math.atan(steepest) / RAD, v: d / t, t, pieces });
   }

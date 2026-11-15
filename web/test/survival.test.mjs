@@ -127,3 +127,14 @@ test("densify across the ±180° seam samples the short way round", () => {
   assert.ok(seen.length >= 10);
   for (const lon of seen) assert.ok(Math.abs(lon) > 179.98 && Math.abs(lon) <= 180, `sample ${lon} stays near the seam`);
 });
+
+test("densify: a vertex height from a coarser grid does not create an artificial cliff", () => {
+  const p = line(1, 0, 11);                       // flat ground at -4000 m, 100 m segments
+  for (let i = 0; i < p.length; i++) p.splice(i, 1, { ...p[i] });
+  const q = [p[0], p[10]];                        // one 1 km segment, densified into 10 pieces
+  q[1] = { ...q[1], elevationM: -3900 };          // the far vertex carries a coarse-cell height 100 m off
+  const r1 = evaluateRoute(q, [], { heightAt: () => -4000 }); // sampler says flat: the last piece must not be a 45° cliff
+  assert.ok(!r1.warnings.some((w) => w.code === "slope"), JSON.stringify(r1.warnings));
+  const r2 = evaluateRoute([{ ...q[0] }, { ...q[1], elevationM: -3400 }], []); // no sampler: a real 31° grade is still refused
+  assert.ok(r2.warnings.some((w) => w.code === "slope"));
+});

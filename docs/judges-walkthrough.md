@@ -3,7 +3,7 @@
 **Open:** https://happyfeet-mars.onrender.com (full app). If it is slow to answer the first time, wait ~1 min:
 the free host wakes up. Backup without the route planner: https://koyphshi.github.io/happyfeet-mars-demo/
 
-Everything below was checked in a fresh headless Chrome against `main @ d7a22f5` on 15 Nov 2026. Steps marked
+Everything below was checked in a fresh headless Chrome against `main @ eed26df` on 15 Nov 2026. Steps marked
 **(full app)** need the Render link; everything else also works on the backup.
 
 **0. Welcome tutorial.** A pop-up offers a guided tour on every load: press **Follow the tutorial** for a
@@ -24,7 +24,8 @@ The page opens on the whole planet.
 2. **Crew & EVA** tab.
    - The integrity chip should read **"✓ Data verified … files match the signed manifest"**.
 3. At the top of **Crew & EVA**, **Scenarios** is already set to *✓ Feasible: short science EVA (signed demo)*:
-   press **▶ Run**. It loads the signed demo and adds **Crew A** and **Crew B** as crew members.
+   press **▶ Run**. It loads the signed demo and adds **Crew A** and **Crew B** as crew members
+   (demo scenarios bring their own crew, so **For** can stay on *Terrain only*).
    - A 2.25 km loop from a haven to three science stops (ridge crest, hollow floor, layer contact) in the
      Gale boxwork, where Curiosity has been driving.
    - Survival card: **GO — lowest reserve at return: Crew B oxygen 69 % (min 20 %)**; per-crew O₂ / cooling
@@ -47,6 +48,8 @@ The page opens on the whole planet.
    - *✗ Impossible: soft dust mantle (Meridiani → Arabia)* → the route leaves firm ground and is blocked by a regional dust mantle (TES thermal inertia, qualitative).
    - *✗ Too far on foot, ✓ fine for a rover (Gale, 15 km)* → astronauts refused, a Perseverance-class rover
      feasible in sols (compare both in **Crew & EVA**).
+   - *🌡 Too hot for the suit* (hypothetical 0 °C suit) → **REFUSED — Too hot for the suit: ground −84…4 °C (REMS sol 4995)**.
+   - *❄ Too cold at night* (hypothetical −60 °C suit) → **GO**, with the warning *"Daytime EVA only"*.
 7. Plan your own: in **Path**, add two stops (search a spot or *Click on map*) → **Calculate route**. Optional:
    *Fastest walk*, *Avoid rough terrain*. By default **For** = *Terrain only*: you get what the ground allows or
    blocks. To get oxygen / water / battery and the survival verdict, pick a crew member in **For** (add one with
