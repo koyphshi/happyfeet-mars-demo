@@ -7,29 +7,23 @@
 // So a pixel's hue gives a RELATIVE index 0..1 along the legend, not a calibrated physical
 // value. The UI says so. Thresholds are in docs/assumptions.md and editable in Settings.
 //
-// Approximate thermal-inertia units: Gale decodes to index 0.67, and Fergason et al. 2012
-// (Space Sci. Rev. 170, 739, doi:10.1007/s11214-012-9891-3) give 250-410 J m^-2 K^-1 s^-1/2 for
-// most of the Gale landing region (mid 330). Assuming the ramp is linear from 0, one index unit
-// is ~490 TIU. That turns the engineering thresholds into index values:
-//   MSL: thermal inertia < 100 TIU = dust-dominated surface, a hazard (MSL Engineering User Guide)
-//   MER: avoid fine-component thermal inertia below ~125-165 TIU (Golombek et al. 2003)
-// The conversion is a single-point calibration; treat the TIU shown in the UI as approximate.
-//
-// Resolution: Trek only serves these layers to level 1 (90° tiles of 256 px = ~21 km per pixel),
-// coarser than the planner's MOLA z6 grid (~2.6 km cells). They mark regional dust mantles
-// (e.g. Tharsis, Arabia, Amazonis), not individual dunes or dust pockets.
-
-export const TIU_PER_INDEX = 330 / 0.67; // DERIVED, see above
-export const tiFromIndex = (v) => v * TIU_PER_INDEX;
-export const indexFromTi = (ti) => ti / TIU_PER_INDEX;
+// Thermal-inertia units, rough: agent:yasser decoded the tile at three landed sites with
+// published values (#29, 2026-11-15): Meridiani index 0.36 ~ 211 TIU (Golombek et al. 2003),
+// Gusev 0.45 ~ 307 TIU (Golombek et al. 2003; Jakosky et al. 2006), Gale 0.67 ~ 330 TIU
+// (Fergason et al. 2012, THEMIS). Linear fit TI = 121 + 327 * index (rms 28 TIU); a log fit is
+// as good, so the shape of the ramp is unknown, and the bottom of the ramp (index 0) is
+// ~120-150 TIU, with no dust-low anchor. So the soft-dust hazard is defined on the index itself
+// ("near the bottom of the colour ramp = dust-dominated"); TIU are shown only as a rough guide.
+export const TI_FIT = Object.freeze({ a: 121, b: 327 });
+export const tiFromIndex = (v) => TI_FIT.a + TI_FIT.b * v;
 
 // Default thresholds; every one can be changed in Settings > Route hazards.
 export const HAZARD_DEFAULTS = Object.freeze({
   roughBlockM: 400, roughFreeM: 40, roughDoubleM: 200,  // m, calibrated on MOLA z6 (assumptions.md)
-  softBlockTi: 100,    // TIU, MSL: < 100 = dust-dominated surface hazard
-  softSlowTi: 150,     // TIU, MER: avoid below ~125-165
+  softBlockIdx: 10,    // % of the thermal-inertia colour ramp: bottom tenth = dust-dominated (qualitative)
+  softSlowIdx: 25,     // % : below this, costlier (every landed site is above 35 %)
   softSlowMax: 1.6,    // cost multiplier just above the block line, ASSUMED
-  dustSlowAbove: 60,   // % of the TES dust map's colour scale, ASSUMED (no calibration found)
+  dustSlowAbove: 60,   // % of the TES dust scale, ASSUMED (no calibration found)
   dustSlowMax: 1.3,    // ASSUMED
   tempMinC: -129,      // degC, coldest worst-case Mars surface temperature at EVA-realistic sites (ICES-2026-126 Table 3: 144 K)
   tempMaxC: 39,        // degC, hottest worst-case Mars surface temperature at those sites (ICES-2026-126 Table 3: 312 K)
@@ -41,7 +35,7 @@ export const HAZARD_LAYERS = Object.freeze({
     id: "softDust", label: "soft dust (low thermal inertia)", lowIsBad: true,
     source: "TES thermal inertia (Putzig et al. 2005) via NASA Trek, orbital ~3 km/px served at ~21 km/px; qualitative (decoded from map colours)",
     // low thermal inertia = loose fine dust / sand that can bog down a rover or a walker
-    blockBelow: indexFromTi(HAZARD_DEFAULTS.softBlockTi), slowBelow: indexFromTi(HAZARD_DEFAULTS.softSlowTi), slowMax: HAZARD_DEFAULTS.softSlowMax,
+    blockBelow: HAZARD_DEFAULTS.softBlockIdx / 100, slowBelow: HAZARD_DEFAULTS.softSlowIdx / 100, slowMax: HAZARD_DEFAULTS.softSlowMax,
   },
   dustCover: {
     dataset: "TES_Dust", level: 1,
@@ -122,7 +116,7 @@ export async function loadHazardRaster(key, bounds, { tileBase, signal } = {}) {
 export function rasterHazard(raster, t = {}) {
   const T = { ...HAZARD_DEFAULTS, ...t };
   const L = raster.id === "softDust"
-    ? { ...raster, blockBelow: indexFromTi(T.softBlockTi), slowBelow: Math.max(indexFromTi(T.softBlockTi) + 1e-6, indexFromTi(T.softSlowTi)), slowMax: T.softSlowMax }
+    ? { ...raster, blockBelow: T.softBlockIdx / 100, slowBelow: Math.max(T.softBlockIdx / 100 + 1e-6, T.softSlowIdx / 100), slowMax: T.softSlowMax }
     : raster.id === "dustCover"
       ? { ...raster, slowAbove: Math.min(0.999, T.dustSlowAbove / 100), slowMax: T.dustSlowMax }
       : raster;
@@ -132,8 +126,9 @@ export function rasterHazard(raster, t = {}) {
     valueAt: (_id, lon, lat) => raster.sample(lon, lat),
     blocks: (v) => v < L.blockBelow,
     factor: (v) => v >= L.slowBelow ? 1 : 1 + (L.slowMax - 1) * (L.slowBelow - v) / (L.slowBelow - L.blockBelow),
-    describe: (v) => `thermal inertia \u2248${Math.round(tiFromIndex(v))} TIU`,
-    limit: `blocked below \u2248${Math.round(tiFromIndex(L.blockBelow))} TIU`,
+    describe: (v) => v < 0.02 ? "below the map's lowest colour (dust-dominated)"
+      : `thermal inertia index ${Math.round(v * 100)}% (\u2248${Math.round(tiFromIndex(v))} TIU, rough)`,
+    limit: `blocked below ${Math.round(L.blockBelow * 100)}% of the colour ramp`,
     source: L.source,
   };
   return {

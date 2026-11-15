@@ -205,10 +205,14 @@ class TiledHeights {
   constructor(level, tiles) { // tiles: [{ x, y, data }]
     this.tilesX = tileColumns(level);
     this.worldWidth = this.tilesX * TILE_CELLS;
-    this.slots = new Map(); // tile key -> slot number
+    this.slots = new Map(); // tile key -> slot number (kept for steepMask and callers)
+    // same mapping as a flat array: the planner looks a cell's tile up on every height / slope
+    // read, and an Int32Array index is several times cheaper than Map.get there
+    this.slotArr = new Int32Array(this.tilesX * tileRows(level)).fill(-1);
     this.data = [];
     for (const { x, y, data } of tiles) {
       this.slots.set(y * this.tilesX + x, this.data.length);
+      this.slotArr[y * this.tilesX + x] = this.data.length;
       this.data.push(data);
     }
     this.cellCount = this.data.length * TILE_SAMPLES * TILE_SAMPLES;
@@ -219,20 +223,21 @@ class TiledHeights {
     const W = this.worldWidth, gx = id % W, gy = (id - gx) / W;
     const tx = Math.floor(gx / TILE_CELLS), ty = Math.floor(gy / TILE_CELLS);
     const lx = gx - tx * TILE_CELLS, ly = gy - ty * TILE_CELLS;
-    let s = this.slots.get(ty * this.tilesX + tx);
-    if (s !== undefined) return s * TILE_SAMPLES * TILE_SAMPLES + ly * TILE_SAMPLES + lx;
+    const A = this.slotArr;
+    let s = A[ty * this.tilesX + tx] ?? -1;
+    if (s >= 0) return s * TILE_SAMPLES * TILE_SAMPLES + ly * TILE_SAMPLES + lx;
     if (lx === 0) {
       const px = (tx - 1 + this.tilesX) % this.tilesX;
-      s = this.slots.get(ty * this.tilesX + px);
-      if (s !== undefined) return s * TILE_SAMPLES * TILE_SAMPLES + ly * TILE_SAMPLES + TILE_CELLS;
+      s = A[ty * this.tilesX + px] ?? -1;
+      if (s >= 0) return s * TILE_SAMPLES * TILE_SAMPLES + ly * TILE_SAMPLES + TILE_CELLS;
     }
     if (ly === 0 && ty > 0) {
-      s = this.slots.get((ty - 1) * this.tilesX + tx);
-      if (s !== undefined) return s * TILE_SAMPLES * TILE_SAMPLES + TILE_CELLS * TILE_SAMPLES + lx;
+      s = A[(ty - 1) * this.tilesX + tx] ?? -1;
+      if (s >= 0) return s * TILE_SAMPLES * TILE_SAMPLES + TILE_CELLS * TILE_SAMPLES + lx;
       if (lx === 0) {
         const px = (tx - 1 + this.tilesX) % this.tilesX;
-        s = this.slots.get((ty - 1) * this.tilesX + px);
-        if (s !== undefined) return s * TILE_SAMPLES * TILE_SAMPLES + TILE_CELLS * TILE_SAMPLES + TILE_CELLS;
+        s = A[(ty - 1) * this.tilesX + px] ?? -1;
+        if (s >= 0) return s * TILE_SAMPLES * TILE_SAMPLES + TILE_CELLS * TILE_SAMPLES + TILE_CELLS;
       }
     }
     return -1;
@@ -628,6 +633,9 @@ export async function planTerrainRoute(grid, start, goal, { maxSlopeDeg = Infini
   };
 
   if (cellSlope(startId) > maxSlopeDeg || cellSlope(goalId) > maxSlopeDeg) return null;
+  // A start or goal inside a blocked hazard zone can never be joined: say so now, instead of
+  // searching everything reachable from the start first (seconds on a large grid). Same result.
+  if (HZ.any && (HZ.factor(startId) < 0 || HZ.factor(goalId) < 0)) return null;
   g[slotOf(startId)] = 0;
   push([heuristic(start.x, start.y), 0, startId]);
   const MX = [-1, 0, 1, -1, 1, -1, 0, 1], MY = [-1, -1, -1, 0, 0, 1, 1, 1];
